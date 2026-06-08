@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مكتبة الجامعة التكنولوجية</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- استدعاء Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+                    colors: {
+                        brand: { 50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap');
+        
+        body { 
+            background-color: #f8fafc;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* حركات الظهور الانسيابية */
+        .animate-fade-in { animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* حركة الخلفية لشاشة الدخول */
+        .animate-blob { animation: blob 10s infinite alternate; }
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animation-delay-2000 { animation-delay: 2s; }
+        
+        /* تصميم التبويبات */
+        .tab-btn { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .tab-active { background-color: white; color: #d97706; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); font-weight: 800; border-radius: 0.75rem;}
+        .tab-inactive { color: #64748b; font-weight: 500; }
+        .tab-inactive:hover { color: #475569; background-color: rgba(255,255,255,0.5); }
+        
+        /* إخفاء شريط التمرير */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="text-slate-800 relative min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
+
+    <div id="app-root" class="flex-grow flex flex-col"></div>
+
+    <script>
+        // ==========================================
+        // إعدادات Firebase
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAs2wYMa4Fs5TJxLzZN616HTUaIxSb_7Bc",
+            authDomain: "tulibary-d35ae.firebaseapp.com",
+            databaseURL: "https://tulibary-d35ae-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "tulibary-d35ae",
+            storageBucket: "tulibary-d35ae.firebasestorage.app",
+            messagingSenderId: "107464097138",
+            appId: "1:107464097138:web:9147008aec9c0e0fa471eb"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const appIdStr = 'tech-library-v1';
+
+        // --- البيانات الأساسية ---
+        const defaultSpecializations = [
+            { id: 'electrical', name: 'بكالوريوس هندسة كهرباء', icon: 'zap', iconColor: 'text-brand-500', bgGlow: 'bg-amber-100' },
+            { id: 'civil', name: 'بكالوريوس هندسة مدنية', icon: 'hard-hat', iconColor: 'text-brand-600', bgGlow: 'bg-yellow-100' },
+            { id: 'architectural', name: 'بكالوريوس هندسة معمارية', icon: 'building-2', iconColor: 'text-yellow-600', bgGlow: 'bg-orange-100' }
+        ];
+        
+        const levels = [
+            { id: 'level_1', name: 'المستوى الأول', num: '01' }, 
+            { id: 'level_2', name: 'المستوى الثاني', num: '02' },
+            { id: 'level_3', name: 'المستوى الثالث', num: '03' }, 
+            { id: 'level_4', name: 'المستوى الرابع', num: '04' },
+            { id: 'level_5', name: 'المستوى الخامس', num: '05' }
+        ];
+
+        const state = {
+            isLoggedIn: false, user: null, currentView: 'home',
+            selectedSpec: null, selectedLevel: null, selectedSubject: null,
+            activeTab: 'references', alert: { show: false, message: '', type: 'success' },
+            confirm: { show: false, id: null, type: '', message: '', extra: null },
+            references: [], subjects: [], lectures: [], exams: [], news: [], dbUsers: [], dynamicSpecializations: []
+        };
+
+        const getAllSpecializations = () => [...defaultSpecializations, ...state.dynamicSpecializations];
+
+        // --- جلب البيانات من Firestore ---
+        auth.signInAnonymously().catch(err => console.error("Auth Error", err));
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                const basePath = `artifacts/${appIdStr}/public/data`;
+                db.collection(`${basePath}/references`).onSnapshot(s => { state.references = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/subjects`).onSnapshot(s => { state.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/lectures`).onSnapshot(s => { state.lectures = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/exams`).onSnapshot(s => { state.exams = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/news`).onSnapshot(s => { state.news = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>b.createdAt - a.createdAt); if (state.isLoggedIn && state.currentView === 'home') renderApp(); });
+                db.collection(`${basePath}/specializations`).onSnapshot(s => { state.dynamicSpecializations = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/users`).onSnapshot(s => { 
+                    state.dbUsers = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+                    // تحديث بيانات المستخدم الحالي
+                    if(state.user && state.user.id) {
+                        const updatedUser = state.dbUsers.find(u => u.id === state.user.id);
+                        if(updatedUser) state.user = { ...state.user, attendedLectures: updatedUser.attendedLectures || [] };
+                    }
+                    if (state.isLoggedIn && state.currentView === 'admin_dashboard') renderApp(); 
+                });
+            }
+        });
+
+        // --- دوال التحكم في التطبيق ---
+        window.showAlert = (msg, type = 'success') => {
+            state.alert = { show: true, message: msg, type }; renderApp();
+            setTimeout(() => { state.alert.show = false; renderApp(); }, 3000);
+        };
+
+        window.handleLogin = (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+            const errDiv = document.getElementById('login-error');
+
+            let matchedUser = null;
+
+            if (u === 'ashraf' && p === '0119852715') {
+                matchedUser = { username: 'م. أشرف (المدير العام)', role: 'super_admin', specialization: 'all', attendedLectures: [] };
+            } else {
+                const dbUser = state.dbUsers.find(user => user.username === u && user.password === p);
+                if (dbUser) matchedUser = { id: dbUser.id, username: dbUser.displayName || u, role: dbUser.role, specialization: dbUser.specialization, attendedLectures: dbUser.attendedLectures || [], uniId: dbUser.uniId };
+            }
+
+            if (matchedUser) {
+                state.user = matchedUser; state.isLoggedIn = true; renderApp();
+            } else {
+                errDiv.classList.remove('hidden'); errDiv.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4 ml-1"></i> بيانات الدخول غير صحيحة'; lucide.createIcons();
+            }
+        };
+
+        window.handleLogout = () => { state.isLoggedIn = false; state.user = null; state.currentView = 'home'; renderApp(); };
+        window.navigateTo = (view, spec = null, level = null, sub = null) => {
+            state.currentView = view;
+            if (spec) state.selectedSpec = spec; if (level) state.selectedLevel = level; if (sub) state.selectedSubject = sub;
+            renderApp();
+        };
+        window.switchTab = (tab) => { state.activeTab = tab; renderMainContent(); };
+
+        // --- نظام الإضافة والحذف ---
+        window.requestDelete = (id, type) => {
+            let msg = type === 'user' ? 'سيتم حذف حساب المستخدم نهائياً. متأكد؟' : 'سيتم الحذف نهائياً للمحتوى. متأكد؟';
+            state.confirm = { show: true, id, type, message: msg }; renderApp();
+        };
+        window.cancelDelete = () => { state.confirm = { show: false, id: null, type: '', message: '' }; renderApp(); };
+        window.executeDelete = async () => {
+            if (!auth.currentUser || !state.confirm.id) return;
+            const { id, type } = state.confirm;
+            let collectionName = type === 'user' ? 'users' : type === 'ref' ? 'references' : type === 'exam' ? 'exams' : type === 'sub' ? 'subjects' : type === 'news' ? 'news' : 'lectures';
+            try { await db.doc(`artifacts/${appIdStr}/public/data/${collectionName}/${id}`).delete(); window.showAlert('تم الحذف'); } 
+            catch (err) { window.showAlert('فشل الحذف', 'error'); } 
+            finally { window.cancelDelete(); }
+        };
+
+        window.handleAddNews = async (e) => {
+            e.preventDefault();
+            try {
+                await db.collection(`artifacts/${appIdStr}/public/data/news`).add({
+                    title: document.getElementById('news-title').value,
+                    content: document.getElementById('news-content').value,
+                    author: state.user.username,
+                    createdAt: Date.now()
+                });
+                window.showAlert('تم نشر الإعلان بنجاح'); e.target.reset();
+            } catch (err) { window.showAlert('فشل النشر', 'error'); }
+        };
+
+        window.handleAddContent = async (e, type) => {
+            e.preventDefault();
+            const data = { spec: state.selectedSpec, level: state.selectedLevel, createdAt: Date.now() };
+            let coll = '';
+
+            if (type === 'ref') {
+                coll = 'references'; data.title = document.getElementById('ref-title').value; data.author = document.getElementById('ref-author').value; data.link = document.getElementById('ref-link').value;
+            } else if (type === 'exam') {
+                coll = 'exams'; data.title = document.getElementById('exam-title').value; data.link = document.getElementById('exam-link').value;
+            } else if (type === 'sub') {
+                coll = 'subjects'; data.title = document.getElementById('sub-title').value;
+            } else if (type === 'lec') {
+                coll = 'lectures'; data.subjectId = state.selectedSubject; data.title = document.getElementById('lec-title').value; data.link = document.getElementById('lec-link').value; data.type = document.getElementById('lec-type').value;
+            }
+
+            try { await db.collection(`artifacts/${appIdStr}/public/data/${coll}`).add(data); window.showAlert('تمت الإضافة بنجاح'); e.target.reset(); } 
+            catch (err) { window.showAlert('فشل الإضافة', 'error'); }
+        };
+
+        // إدارة الحسابات
+        window.handleAddUser = async (e) => {
+            e.preventDefault();
+            const isSuper = state.user.role === 'super_admin';
+            const specVal = isSuper ? document.getElementById('new-user-spec').value : state.user.specialization;
+            const roleVal = isSuper ? document.getElementById('new-user-role').value : 'student';
+            const uniIdEl = document.getElementById('new-user-uni-id');
+            const uniIdVal = uniIdEl ? uniIdEl.value : '';
+
+            try {
+                await db.collection(`artifacts/${appIdStr}/public/data/users`).add({
+                    displayName: document.getElementById('new-user-name').value,
+                    username: document.getElementById('new-user-id').value,
+                    password: document.getElementById('new-user-pass').value,
+                    uniId: uniIdVal,
+                    role: roleVal, specialization: specVal, attendedLectures: [], createdAt: Date.now()
+                });
+                window.showAlert('تم إنشاء الحساب بنجاح!'); e.target.reset();
+            } catch (err) { window.showAlert('فشل إنشاء الحساب', 'error'); }
+        };
+
+        window.handleAddSpecialization = async (e) => {
+            e.preventDefault();
+            try {
+                const color = document.getElementById('new-spec-color').value;
+                await db.collection(`artifacts/${appIdStr}/public/data/specializations`).add({
+                    id: 'spec_' + Date.now(), name: document.getElementById('new-spec-title').value,
+                    icon: document.getElementById('new-spec-icon').value, iconColor: `text-${color}-600`, bgGlow: `bg-${color}-100`, createdAt: Date.now()
+                });
+                window.showAlert('تم إضافة القسم بنجاح!'); e.target.reset();
+            } catch (err) { window.showAlert('فشل الإضافة', 'error'); }
+        };
+
+        // نظام الحضور والتقدم
+        window.toggleAttendance = async (lecId) => {
+            if(!state.user || state.user.role !== 'student' || !state.user.id) return;
+            const isAttended = state.user.attendedLectures?.includes(lecId);
+            try {
+                const userRef = db.doc(`artifacts/${appIdStr}/public/data/users/${state.user.id}`);
+                if(isAttended) {
+                    await userRef.update({ attendedLectures: firebase.firestore.FieldValue.arrayRemove(lecId) });
+                } else {
+                    await userRef.update({ attendedLectures: firebase.firestore.FieldValue.arrayUnion(lecId) });
+                }
+            } catch (err) { console.error("Attendance err", err); }
+        };
+
+        function refreshIcons() { if (typeof lucide !== 'undefined') lucide.createIcons(); }
+
+        // ==========================================
+        // بناء واجهة المستخدم
+        // ==========================================
+        window.renderApp = function() {
+            const root = document.getElementById('app-root');
+            
+            if (!state.isLoggedIn) {
+                root.innerHTML = `
+                <div class="min-h-screen flex flex-col justify-center items-center relative overflow-hidden bg-slate-50">
+                    <!-- تأثيرات جمالية للخلفية -->
+                    <div class="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-brand-200 rounded-full mix-blend-multiply blur-3xl opacity-40 animate-blob"></div>
+                    <div class="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-100 rounded-full mix-blend-multiply blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
+                    
+                    <div class="bg-white/70 backdrop-blur-2xl p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-white/50 w-full max-w-md text-center z-10 animate-slide-up">
+                        
+                        <div class="mb-6 flex justify-center">
+                    <div class="bg-white/60 backdrop-blur-2xl p-10 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white w-full max-w-md text-center z-10 animate-slide-up">
+                        <div class="mb-6 flex justify-center">
+                            <div class="bg-white p-3 rounded-3xl shadow-lg border border-slate-100 transform hover:scale-105 transition-transform duration-300">
+                                <img src="1000327658.png" alt="شعار الجامعة" class="w-24 h-24 object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="hidden w-24 h-24 bg-gradient-to-br from-brand-400 to-brand-600 items-center justify-center rounded-2xl shadow-lg shadow-brand-500/30"><i data-lucide="library" class="w-10 h-10 text-white"></i></div>
+                            </div>
+                        </div>
+                        <h2 class="text-3xl font-extrabold mb-2 text-slate-800 tracking-tight">مكتبة الجامعة <span class="text-brand-500">التكنولوجية</span></h2>
+                        <p class="text-slate-500 mb-8 font-medium">سجل دخولك للوصول إلى المراجع والمحاضرات والاختبارات</p>
+                        
+                        <form onsubmit="window.handleLogin(event)" class="space-y-5">
+                            <div id="login-error" class="hidden text-red-600 text-sm font-bold bg-red-50 p-3 rounded-xl flex items-center justify-center border border-red-100"></div>
+                            
+                            <div class="relative">
+                                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none"><i data-lucide="user" class="h-5 w-5 text-slate-400"></i></div>
+                                <input type="text" id="username" required placeholder="اسم المستخدم" class="w-full pr-11 pl-4 py-3.5 bg-white/80 border border-slate-200 rounded-xl focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all shadow-sm">
+                            </div>
+
+                            <div class="relative">
+                                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none"><i data-lucide="lock" class="h-5 w-5 text-slate-400"></i></div>
+                                <input type="password" id="password" required placeholder="كلمة المرور" class="w-full pr-11 pl-4 py-3.5 bg-white/80 border border-slate-200 rounded-xl focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all shadow-sm">
+                            </div>
+
+                            <button type="submit" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 mt-2">
+                                تسجيل الدخول
+                            </button>
+                        </form>
+                    </div>
+                </div>`;
+            } else {
+                const canEdit = ['super_admin', 'admin', 'doctor'].includes(state.user.role);
+                const isSuper = state.user.role === 'super_admin';
+                
+                root.innerHTML = `
+                <!-- التنبيهات -->
+                ${state.alert.show ? `<div class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-${state.alert.type==='error'?'red':'slate'}-900 text-white px-6 py-3.5 rounded-full z-50 shadow-2xl font-bold flex items-center animate-slide-up border border-white/10"><i data-lucide="${state.alert.type==='error'?'alert-octagon':'check-circle-2'}" class="w-5 h-5 ml-2 ${state.alert.type==='error'?'text-red-400':'text-brand-400'}"></i> ${state.alert.message}</div>` : ''}
+                ${state.confirm.show ? `<div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"><div class="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center transform scale-100"><div class="mx-auto flex h-16 w-16 rounded-full bg-red-50 border border-red-100 mb-5 items-center justify-center"><i data-lucide="alert-triangle" class="h-8 w-8 text-red-500"></i></div><h3 class="text-xl font-extrabold mb-2 text-slate-900">تأكيد الإجراء</h3><p class="text-sm text-slate-500 mb-6 font-medium">${state.confirm.message}</p><div class="flex gap-3"><button onclick="window.cancelDelete()" class="px-5 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold flex-1 hover:bg-slate-200 transition-colors">إلغاء</button><button onclick="window.executeDelete()" class="px-5 py-3 bg-red-500 text-white rounded-xl font-bold flex-1 hover:bg-red-600 shadow-md shadow-red-500/20 transition-all">تأكيد</button></div></div></div>` : ''}
+
+                <!-- الشريط العلوي (النافبار) -->
+                <nav class="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-40">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
+                        <div class="flex items-center cursor-pointer group" onclick="window.navigateTo('home')">
+                            <img src="1000327658.png" alt="الشعار" class="w-10 h-10 object-contain ml-3 group-hover:scale-105 transition-transform drop-shadow-sm" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="hidden bg-slate-900 p-2.5 rounded-xl ml-3 group-hover:scale-105 transition-transform shadow-md items-center justify-center">
+                                <i data-lucide="library" class="text-brand-400 w-5 h-5"></i>
+                            </div>
+                            <span class="font-extrabold text-xl text-slate-900 hidden sm:block tracking-tight">مكتبة الجامعة <span class="text-brand-500">التكنولوجية</span></span>
+                        </div>
+                        
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            ${canEdit ? `<button onclick="window.navigateTo('admin_dashboard')" class="flex items-center bg-purple-50 text-purple-700 px-4 py-2.5 rounded-xl hover:bg-purple-100 font-bold text-sm transition-colors border border-purple-200"><i data-lucide="settings" class="w-4 h-4 sm:ml-1.5"></i><span class="hidden sm:inline">لوحة التحكم</span></button>` : ''}
+                            <div class="flex items-center bg-slate-50 border border-slate-200 py-2 px-3 sm:px-4 rounded-xl">
+                                <div class="w-2.5 h-2.5 rounded-full ml-2 ${isSuper ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]' : state.user.role === 'admin' ? 'bg-brand-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : state.user.role === 'doctor' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-blue-500'}"></div>
+                                <span class="text-sm font-bold text-slate-700">${state.user.username}</span>
+                            </div>
+                            <button onclick="window.handleLogout()" class="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2.5 rounded-xl transition-colors" title="تسجيل الخروج">
+                                <i data-lucide="log-out" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </nav>
+                <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow flex flex-col"></main>
+                `;
+                renderMainContent();
+            }
+            refreshIcons();
+        }
+
+        window.renderMainContent = function() {
+            const container = document.getElementById('main-content');
+            if(!container) return;
+            let html = '';
+            
+            const currentSpecsList = getAllSpecializations();
+            const canEdit = ['super_admin', 'admin', 'doctor'].includes(state.user.role);
+            const isSuper = state.user.role === 'super_admin';
+
+            // --- 0. لوحة التحكم ---
+            if(state.currentView === 'admin_dashboard' && canEdit) {
+                html = `
+                <div class="animate-fade-in space-y-8">
+                    <button onclick="window.navigateTo('home')" class="text-slate-500 font-bold flex items-center bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm w-max hover:bg-slate-50 transition-colors"><i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i> رجوع للرئيسية</button>
+                    
+                    <div class="bg-gradient-to-l from-slate-900 to-slate-800 p-8 rounded-[2rem] text-white flex justify-between items-center shadow-xl border border-slate-700 relative overflow-hidden">
+                        <div class="absolute -left-10 -top-10 w-40 h-40 bg-purple-500 rounded-full blur-3xl opacity-20"></div>
+                        <div class="relative z-10">
+                            <h2 class="text-3xl font-black mb-2 tracking-tight">لوحة الإدارة والتحكم</h2>
+                            <p class="text-slate-300 font-medium flex items-center"><i data-lucide="shield-check" class="w-4 h-4 ml-1 text-purple-400"></i> مرحباً بك ${state.user.username} | الصلاحية: ${state.user.role}</p>
+                        </div>
+                        <i data-lucide="settings" class="w-16 h-16 text-slate-700 opacity-50 absolute left-8 -rotate-12"></i>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        
+                        <!-- إضافة حساب -->
+                        <div class="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                            <h3 class="font-extrabold text-xl mb-6 flex items-center text-slate-900">
+                                <div class="bg-blue-50 text-blue-600 p-2 rounded-lg ml-3 border border-blue-100"><i data-lucide="user-plus" class="w-5 h-5"></i></div> 
+                                إضافة حساب جديد
+                            </h3>
+                            <form onsubmit="window.handleAddUser(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">الاسم الكامل</label>
+                                    <input type="text" id="new-user-name" required placeholder="مثال: أحمد محمد" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">اسم المستخدم للدخول</label>
+                                        <input type="text" id="new-user-id" required placeholder="مثال: ahmed99" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">كلمة المرور</label>
+                                        <input type="text" id="new-user-pass" required placeholder="••••••••" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">الرقم الجامعي (اختياري للطلاب)</label>
+                                    <input type="text" id="new-user-uni-id" placeholder="مثال: 20241050" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                </div>
+                                ${isSuper ? `
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">الصلاحية</label>
+                                        <select id="new-user-role" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
+                                            <option value="student">طالب</option><option value="admin">مشرف قسم</option><option value="doctor">دكتور/أستاذ</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">القسم الأكاديمي</label>
+                                        <select id="new-user-spec" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
+                                            <option value="all">كافة التخصصات (إدارة)</option>
+                                            ${currentSpecsList.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                </div>` : `<div class="bg-blue-50 text-blue-800 text-sm p-3 rounded-xl border border-blue-100 flex items-start gap-2"><i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i> سيتم إضافة الحساب للقسم الأكاديمي الخاص بك تلقائياً.</div>`}
+                                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-all shadow-md mt-2">إنشاء الحساب</button>
+                            </form>
+                        </div>
+
+                        <!-- إضافة خبر -->
+                        <div class="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                            <h3 class="font-extrabold text-xl mb-6 flex items-center text-slate-900">
+                                <div class="bg-brand-50 text-brand-600 p-2 rounded-lg ml-3 border border-brand-100"><i data-lucide="bell-ring" class="w-5 h-5"></i></div> 
+                                نشر إعلان أو تبليغ
+                            </h3>
+                            <form onsubmit="window.handleAddNews(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">عنوان الإعلان</label>
+                                    <input type="text" id="news-title" required placeholder="مثال: تأجيل محاضرة الرياضيات" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">تفاصيل الإعلان</label>
+                                    <textarea id="news-content" required placeholder="اكتب تفاصيل الإعلان هنا..." rows="4" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all resize-none"></textarea>
+                                </div>
+                                <button type="submit" class="w-full bg-brand-500 text-white font-bold py-4 rounded-xl hover:bg-brand-600 transition-all shadow-md mt-2">نشر الآن</button>
+                            </form>
+                        </div>
+                        
+                        ${isSuper ? `
+                        <!-- إضافة تخصص -->
+                        <div class="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] col-span-1 lg:col-span-2">
+                            <h3 class="font-extrabold text-xl mb-6 flex items-center text-slate-900">
+                                <div class="bg-emerald-50 text-emerald-600 p-2 rounded-lg ml-3 border border-emerald-100"><i data-lucide="layers" class="w-5 h-5"></i></div> 
+                                تأسيس قسم أكاديمي جديد
+                            </h3>
+                            <form onsubmit="window.handleAddSpecialization(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">اسم التخصص أو الكلية</label>
+                                    <input type="text" id="new-spec-title" required placeholder="مثال: كلية علوم الحاسوب" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">الأيقونة المعبرة</label>
+                                    <select id="new-spec-icon" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold text-slate-600">
+                                        <option value="book">كتاب (عام)</option><option value="cpu">معالج (تقنية)</option><option value="stethoscope">سماعة (طبي)</option><option value="scale">ميزان (قانون)</option><option value="briefcase">حقيبة (أعمال)</option><option value="palette">لوحة (فنون)</option><option value="flask-conical">دورق (علوم)</option>
+                                    </select>
+                                </div>
+                                <div><button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 transition-all shadow-md">إضافة القسم</button></div>
+                            </form>
+                        </div>
+                        
+                        <!-- إدارة الحسابات -->
+                        <div class="bg-white rounded-[2rem] border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] col-span-1 lg:col-span-2 overflow-hidden">
+                            <div class="p-6 sm:p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                <h3 class="font-extrabold text-xl text-slate-900 flex items-center"><i data-lucide="users" class="w-5 h-5 ml-2 text-slate-500"></i> إدارة الحسابات المسجلة</h3>
+                                <span class="bg-white border border-slate-200 text-slate-600 font-bold px-4 py-1.5 rounded-full text-sm shadow-sm">${state.dbUsers.length} مستخدم</span>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-right whitespace-nowrap">
+                                    <thead class="bg-slate-50/80 text-slate-500 border-b border-slate-100">
+                                        <tr><th class="p-5 font-bold">الاسم الكامل</th><th class="p-5 font-bold">الرقم الجامعي</th><th class="p-5 font-bold">معرف الدخول</th><th class="p-5 font-bold">الدور</th><th class="p-5 font-bold">القسم الأكاديمي</th><th class="p-5 font-bold text-center">إجراء</th></tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        ${state.dbUsers.map(u => `
+                                        <tr class="hover:bg-slate-50/50 transition-colors">
+                                            <td class="p-5 font-bold text-slate-800">${u.displayName}</td>
+                                            <td class="p-5 text-slate-500 font-mono">${u.uniId || '---'}</td>
+                                            <td class="p-5 text-slate-500 font-mono">${u.username}</td>
+                                            <td class="p-5"><span class="px-3 py-1 rounded-full text-xs font-bold border ${u.role==='student'?'bg-blue-50 text-blue-600 border-blue-100':u.role==='doctor'?'bg-emerald-50 text-emerald-600 border-emerald-100':'bg-brand-50 text-brand-600 border-brand-100'}">${u.role==='student'?'طالب':u.role==='doctor'?'دكتور':'مشرف'}</span></td>
+                                            <td class="p-5 text-slate-600 font-medium">${u.specialization==='all'?'الكل (إدارة)':(currentSpecsList.find(s=>s.id===u.specialization)?.name || 'غير محدد')}</td>
+                                            <td class="p-5 text-center"><button onclick="window.requestDelete('${u.id}','user')" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors border border-transparent hover:border-red-100" title="حذف الحساب"><i data-lucide="trash-2" class="w-5 h-5"></i></button></td>
+                                        </tr>`).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>`;
+            }
+
+            // --- 1. الرئيسية (الأخبار والتخصصات) ---
+            else if(state.currentView === 'home') {
+                const visibleSpecs = isSuper ? currentSpecsList : currentSpecsList.filter(s => s.id === state.user.specialization);
+                
+                html = `<div class="animate-slide-up space-y-10">`;
+                
+                // قسم الأخبار (لوحة الإعلانات)
+                if(state.news.length > 0) {
+                    html += `
+                    <div class="bg-gradient-to-r from-brand-50 to-white rounded-[2rem] border border-brand-100 p-6 sm:p-8 shadow-sm">
+                        <h3 class="text-brand-700 font-black text-2xl mb-6 flex items-center tracking-tight"><i data-lucide="megaphone" class="w-7 h-7 ml-2 text-brand-500 animate-pulse"></i> لوحة الإعلانات والتبليغات</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${state.news.slice(0,4).map((n, idx) => `
+                                <div class="bg-white p-5 rounded-2xl border border-brand-100 shadow-sm flex flex-col hover:shadow-md transition-shadow relative overflow-hidden group">
+                                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-400"></div>
+                                    <div class="flex justify-between items-start mb-2">
+                                        <h4 class="font-extrabold text-slate-800 text-lg leading-tight">${n.title}</h4>
+                                        ${isSuper ? `<button onclick="window.requestDelete('${n.id}','news')" class="text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="x-circle" class="w-5 h-5"></i></button>` : ''}
+                                    </div>
+                                    <p class="text-slate-600 font-medium leading-relaxed">${n.content}</p>
+                                    <div class="mt-4 pt-3 border-t border-slate-100 text-xs font-bold text-slate-400 flex items-center"><i data-lucide="clock" class="w-3.5 h-3.5 ml-1"></i> نشر بواسطة: ${n.author}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                }
+
+                html += `
+                <div class="text-center pt-4">
+                    <h1 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-3">أقسامك الأكاديمية</h1>
+                    <p class="text-slate-500 font-medium text-lg">تصفح المقررات، المراجع، والاختبارات المخصصة لك.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+                    ${visibleSpecs.map((spec, idx) => `
+                        <div onclick="window.navigateTo('levels', '${spec.id}')" class="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:border-brand-200 cursor-pointer transition-all duration-300 transform hover:-translate-y-1.5 flex flex-col items-center text-center group animate-slide-up" style="animation-delay: ${idx * 0.1}s">
+                            <div class="${spec.bgGlow} p-5 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300 border border-white/50"><i data-lucide="${spec.icon}" class="w-10 h-10 ${spec.iconColor}"></i></div>
+                            <h3 class="font-extrabold text-2xl text-slate-900 mb-2">${spec.name}</h3>
+                            <div class="flex items-center gap-1.5 text-slate-500 text-sm font-medium mt-auto bg-slate-50 px-5 py-2 rounded-full border border-slate-100 group-hover:bg-brand-50 group-hover:text-brand-700 transition-colors"><span>الدخول للقسم</span><i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i></div>
+                        </div>
+                    `).join('')}
+                    ${visibleSpecs.length === 0 ? '<div class="col-span-full flex flex-col items-center justify-center py-16 bg-white rounded-[2rem] border border-dashed border-slate-300 shadow-sm"><div class="bg-slate-50 p-4 rounded-full mb-4"><i data-lucide="shield-alert" class="w-10 h-10 text-slate-400"></i></div><h3 class="text-xl font-bold text-slate-700 mb-2">لا يوجد أقسام معينة</h3><p class="text-slate-500 font-medium">لم يتم تعيينك في أي تخصص دراسي بعد. يرجى مراجعة إدارة التسجيل.</p></div>' : ''}
+                </div></div>`;
+            }
+            
+            // --- 2. المستويات ---
+            else if(state.currentView === 'levels') {
+                const spec = currentSpecsList.find(s=>s.id === state.selectedSpec);
+                html = `
+                <div class="animate-fade-in">
+                    <button onclick="window.navigateTo('home')" class="mb-6 text-slate-500 hover:text-slate-900 font-bold flex items-center transition-colors bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm w-max hover:shadow-md"><i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i> عودة للأقسام</button>
+                    
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-5 bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-100 mb-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] relative overflow-hidden">
+                        <div class="absolute -left-10 -top-10 w-40 h-40 ${spec?.bgGlow || 'bg-slate-100'} rounded-full blur-3xl opacity-50"></div>
+                        <div class="${spec?.bgGlow || 'bg-slate-100'} p-4 rounded-2xl relative z-10 border border-white/50 shadow-sm"><i data-lucide="${spec?.icon || 'book'}" class="w-10 h-10 ${spec?.iconColor || 'text-slate-600'}"></i></div>
+                        <div class="relative z-10"><h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">${spec?.name || 'تخصص غير معروف'}</h2><p class="text-slate-500 mt-1.5 font-medium text-lg">الرجاء اختيار المستوى أو الفصل الدراسي</p></div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        ${levels.map((lvl, idx) => `
+                            <div onclick="window.navigateTo('tabs', '${state.selectedSpec}', '${lvl.id}')" class="bg-white p-5 rounded-2xl border border-slate-200 cursor-pointer hover:border-brand-400 hover:shadow-lg font-bold text-lg flex justify-between items-center group transition-all animate-slide-up" style="animation-delay: ${idx * 0.05}s">
+                                <div class="flex items-center gap-4"><div class="bg-slate-50 border border-slate-100 w-12 h-12 flex items-center justify-center rounded-xl group-hover:bg-brand-50 text-slate-400 group-hover:text-brand-500 font-black text-xl transition-colors">${lvl.num}</div><span class="text-slate-800 group-hover:text-brand-600 transition-colors">${lvl.name}</span></div>
+                                <div class="bg-slate-50 p-2 rounded-lg group-hover:bg-brand-100 transition-colors"><i data-lucide="chevron-left" class="w-5 h-5 text-slate-400 group-hover:text-brand-600"></i></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+            
+            // --- 3. التبويبات (مراجع / مواد / اختبارات) ---
+            else if(state.currentView === 'tabs') {
+                const levelName = levels.find(l=>l.id === state.selectedLevel).name;
+                const specObj = currentSpecsList.find(s=>s.id === state.selectedSpec);
+                const specName = specObj ? specObj.name : 'القسم';
+
+                html = `
+                <div class="animate-fade-in flex-grow flex flex-col">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-8 gap-4">
+                        <div>
+                            <button onclick="window.navigateTo('levels', '${state.selectedSpec}')" class="mb-4 text-slate-500 hover:text-slate-900 font-bold flex items-center transition-colors w-max"><i data-lucide="arrow-right" class="w-4 h-4 ml-1.5"></i> رجوع</button>
+                            <h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">${levelName}</h2>
+                            <p class="text-brand-600 font-bold mt-2 bg-brand-50 inline-block px-4 py-1.5 rounded-full text-sm border border-brand-100">${specName}</p>
+                        </div>
+                        
+                        <!-- التبويبات العصرية -->
+                        <div class="bg-slate-200/60 p-1.5 rounded-2xl flex flex-wrap inline-flex w-full lg:w-auto shadow-inner gap-1">
+                            <button onclick="window.switchTab('references')" class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-3 rounded-xl text-sm tab-btn ${state.activeTab === 'references' ? 'tab-active' : 'tab-inactive'}"><i data-lucide="book-marked" class="w-4 h-4"></i> المراجع الأكاديمية</button>
+                            <button onclick="window.switchTab('subjects')" class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-3 rounded-xl text-sm tab-btn ${state.activeTab === 'subjects' ? 'tab-active' : 'tab-inactive'}"><i data-lucide="library" class="w-4 h-4"></i> المواد والمحاضرات</button>
+                            <button onclick="window.switchTab('exams')" class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-3 rounded-xl text-sm tab-btn ${state.activeTab === 'exams' ? 'tab-active text-blue-600 border-b-0' : 'tab-inactive'}"><i data-lucide="file-question" class="w-4 h-4"></i> الاختبارات السابقة</button>
+                        </div>
+                    </div>`;
+
+                if(state.activeTab === 'references') {
+                    const refs = state.references.filter(r => r.spec === state.selectedSpec && r.level === state.selectedLevel);
+                    if(canEdit) {
+                        html += `
+                        <form onsubmit="window.handleAddContent(event, 'ref')" class="bg-brand-50 p-6 sm:p-8 rounded-[2rem] border border-brand-100 mb-8 shadow-sm animate-slide-up">
+                            <h3 class="font-extrabold text-brand-900 mb-5 flex items-center"><div class="bg-white p-2 rounded-lg ml-3 border border-brand-100"><i data-lucide="cloud-upload" class="w-5 h-5 text-brand-600"></i></div> إضافة مرجع جديد</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                                <div class="col-span-2"><input type="text" id="ref-title" required placeholder="عنوان المرجع..." class="w-full p-3.5 bg-white border border-white rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm transition-all"></div>
+                                <div class="col-span-1"><input type="text" id="ref-author" required placeholder="اسم المؤلف..." class="w-full p-3.5 bg-white border border-white rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm transition-all"></div>
+                                <div class="col-span-1"><input type="url" id="ref-link" required placeholder="رابط التحميل/العرض..." class="w-full p-3.5 bg-white border border-white rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm transition-all" dir="ltr"></div>
+                                <button type="submit" class="col-span-1 h-[54px] bg-brand-500 text-white font-bold rounded-xl hover:bg-brand-600 transition-all shadow-md flex items-center justify-center"><i data-lucide="plus" class="w-5 h-5 ml-1"></i> إضافة</button>
+                            </div>
+                        </form>`;
+                    }
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">`;
+                    refs.forEach((r, idx) => {
+                        html += `
+                        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col group animate-slide-up" style="animation-delay: ${idx * 0.05}s">
+                            <div class="flex items-start mb-6"><div class="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl ml-4 group-hover:bg-brand-50 text-slate-400 group-hover:text-brand-500 transition-colors"><i data-lucide="book-open" class="w-6 h-6"></i></div><div><h3 class="font-bold text-lg text-slate-900 leading-snug">${r.title}</h3><p class="text-sm text-slate-500 mt-1">${r.author}</p></div></div>
+                            <div class="mt-auto flex justify-between pt-5 border-t border-slate-100 items-center">
+                                <a href="${r.link}" target="_blank" class="text-slate-700 bg-slate-50 hover:bg-brand-50 hover:text-brand-700 px-5 py-2.5 rounded-xl font-bold text-sm flex items-center transition-all border border-slate-200 hover:border-brand-200"><i data-lucide="external-link" class="w-4 h-4 ml-1.5"></i> تصفح المرجع</a>
+                                ${canEdit ? `<button onclick="window.requestDelete('${r.id}', 'ref')" class="text-red-400 hover:text-red-600 bg-white hover:bg-red-50 p-2.5 rounded-xl transition-colors border border-transparent hover:border-red-100" title="حذف المرجع"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : ''}
+                            </div>
+                        </div>`;
+                    });
+                    html += refs.length === 0 ? '<div class="col-span-full flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-dashed border-slate-300"><div class="bg-slate-50 p-4 rounded-full mb-4"><i data-lucide="book-x" class="w-10 h-10 text-slate-400"></i></div><p class="text-slate-500 font-bold text-lg">لم يتم رفع مراجع دراسية بعد.</p></div>' : '</div>';
+                
+                } else if(state.activeTab === 'exams') {
+                    const examsList = state.exams.filter(e => e.spec === state.selectedSpec && e.level === state.selectedLevel);
+                    if(canEdit) {
+                        html += `
+                        <form onsubmit="window.handleAddContent(event, 'exam')" class="bg-blue-50 p-6 sm:p-8 rounded-[2rem] border border-blue-100 mb-8 shadow-sm animate-slide-up">
+                            <h3 class="font-extrabold text-blue-900 mb-5 flex items-center"><div class="bg-white p-2 rounded-lg ml-3 border border-blue-100"><i data-lucide="file-question" class="w-5 h-5 text-blue-600"></i></div> إضافة اختبار أو نموذج</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                <div class="col-span-2"><input type="text" id="exam-title" required placeholder="عنوان الاختبار (مثال: ميدتيرم رياضيات 2023)" class="w-full p-3.5 bg-white border border-white rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm transition-all"></div>
+                                <div class="col-span-1"><input type="url" id="exam-link" required placeholder="رابط الاختبار..." class="w-full p-3.5 bg-white border border-white rounded-xl outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm transition-all" dir="ltr"></div>
+                                <button type="submit" class="col-span-1 h-[54px] bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md flex items-center justify-center"><i data-lucide="plus" class="w-5 h-5 ml-1"></i> إضافة</button>
+                            </div>
+                        </form>`;
+                    }
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">`;
+                    examsList.forEach((e, idx) => {
+                        html += `
+                        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all flex flex-col group animate-slide-up" style="animation-delay: ${idx * 0.05}s">
+                            <div class="flex items-center gap-4 mb-6">
+                                <div class="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl group-hover:bg-blue-50 text-slate-400 group-hover:text-blue-500 transition-colors"><i data-lucide="clipboard-list" class="w-6 h-6"></i></div>
+                                <h3 class="font-bold text-lg text-slate-900 leading-snug">${e.title}</h3>
+                            </div>
+                            <div class="mt-auto flex justify-between pt-5 border-t border-slate-100 items-center">
+                                <a href="${e.link}" target="_blank" class="text-blue-700 bg-blue-50 hover:bg-blue-100 px-5 py-2.5 rounded-xl font-bold text-sm flex items-center transition-all"><i data-lucide="external-link" class="w-4 h-4 ml-1.5"></i> عرض الاختبار</a>
+                                ${canEdit ? `<button onclick="window.requestDelete('${e.id}', 'exam')" class="text-red-400 hover:text-red-600 bg-white hover:bg-red-50 p-2.5 rounded-xl transition-colors border border-transparent hover:border-red-100" title="حذف الاختبار"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : ''}
+                            </div>
+                        </div>`;
+                    });
+                    html += examsList.length === 0 ? '<div class="col-span-full flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-dashed border-slate-300"><div class="bg-slate-50 p-4 rounded-full mb-4"><i data-lucide="clipboard-x" class="w-10 h-10 text-slate-400"></i></div><p class="text-slate-500 font-bold text-lg">لم يتم رفع اختبارات أو نماذج سابقة بعد.</p></div>' : '</div>';
+
+                } else {
+                    const subs = state.subjects.filter(s => s.spec === state.selectedSpec && s.level === state.selectedLevel);
+                    if(canEdit) {
+                        html += `
+                        <form onsubmit="window.handleAddContent(event, 'sub')" class="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 mb-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col sm:flex-row gap-4 items-end animate-slide-up">
+                            <div class="flex-grow w-full">
+                                <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">اسم المادة الدراسية الجديدة</label>
+                                <input type="text" id="sub-title" required placeholder="مثال: فيزياء عامة 1" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
+                            </div>
+                            <button type="submit" class="w-full sm:w-auto h-[54px] bg-slate-900 text-white px-8 rounded-xl font-bold whitespace-nowrap hover:bg-slate-800 transition-colors shadow-md flex items-center justify-center"><i data-lucide="plus" class="w-5 h-5 ml-1"></i> إضافة المادة</button>
+                        </form>`;
+                    }
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-5">`;
+                    subs.forEach((s, idx) => {
+                        const lecCount = state.lectures.filter(l => l.subjectId === s.id).length;
+                        html += `
+                        <div class="bg-white p-6 rounded-3xl border border-slate-200 hover:border-brand-300 hover:shadow-md cursor-pointer group flex justify-between items-center transition-all animate-slide-up" style="animation-delay: ${idx * 0.05}s">
+                            <div onclick="window.navigateTo('lectures', null, null, '${s.id}')" class="flex-grow flex items-center h-full">
+                                <div class="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl ml-4 group-hover:bg-brand-50 group-hover:border-brand-100 transition-colors"><i data-lucide="folder-open" class="w-7 h-7 text-slate-400 group-hover:text-brand-500 transition-colors"></i></div>
+                                <div><h3 class="font-extrabold text-lg text-slate-800 group-hover:text-brand-600 transition-colors">${s.title}</h3><p class="text-sm text-slate-500 font-medium mt-0.5">${lecCount} محتوى تعليمي</p></div>
+                            </div>
+                            ${canEdit ? `<button onclick="window.requestDelete('${s.id}', 'sub')" class="text-red-400 hover:text-red-600 bg-white hover:bg-red-50 p-2.5 rounded-xl transition-colors ml-2 border border-transparent hover:border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : `<div class="bg-slate-50 p-2 rounded-lg group-hover:bg-brand-50 transition-colors ml-2"><i data-lucide="chevron-left" class="w-5 h-5 text-slate-400 group-hover:text-brand-500"></i></div>`}
+                        </div>`;
+                    });
+                    html += subs.length === 0 ? '<div class="col-span-full flex flex-col items-center justify-center py-16 bg-white rounded-[2rem] border border-dashed border-slate-300 shadow-sm"><div class="bg-slate-50 p-4 rounded-full mb-4"><i data-lucide="folder-x" class="w-10 h-10 text-slate-400"></i></div><p class="text-slate-500 font-bold text-lg">لم يتم إضافة مواد دراسية بعد.</p></div>' : '</div>';
+                }
+                html += `</div>`;
+            }
+
+            // --- 4. المحاضرات والمحتوى التعليمي ---
+            else if (state.currentView === 'lectures') {
+                const sub = state.subjects.find(s => s.id === state.selectedSubject);
+                const lecs = state.lectures.filter(l => l.subjectId === state.selectedSubject).sort((a,b)=>a.createdAt - b.createdAt); // الترتيب من الأقدم للأحدث كترتيب دراسي
+                const canEdit = ['super_admin', 'admin', 'doctor'].includes(state.user.role);
+                
+                // إحصائيات الطالب (مؤشر التقدم الجمالي)
+                let progressHtml = '';
+                if(state.user.role === 'student' && lecs.length > 0) {
+                    const attendedCount = lecs.filter(l => state.user.attendedLectures?.includes(l.id)).length;
+                    const percent = Math.round((attendedCount / lecs.length) * 100);
+                    let colorClass = percent === 100 ? 'bg-emerald-500' : percent > 50 ? 'bg-brand-500' : 'bg-blue-500';
+                    progressHtml = `
+                    <div class="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm mb-8 animate-slide-up">
+                        <div class="flex justify-between items-end mb-4">
+                            <div><h4 class="font-extrabold text-slate-800 text-lg">مستوى إنجازك في المادة</h4><p class="text-sm text-slate-500 font-medium mt-1">قمت بإنهاء ${attendedCount} من أصل ${lecs.length} محتوى</p></div>
+                            <span class="font-black text-3xl ${colorClass.replace('bg-', 'text-')}">${percent}%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200/60"><div class="${colorClass} h-full rounded-full transition-all duration-1000 relative" style="width: ${percent}%"><div class="absolute inset-0 bg-white/20" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div></div></div>
+                    </div>`;
+                }
+
+                // إحصائيات الدكتور (جدول تقييم أنيق)
+                let doctorHtml = '';
+                if(state.user.role === 'doctor' || isSuper) {
+                    const studentsInSpec = state.dbUsers.filter(u => u.role === 'student' && (u.specialization === state.selectedSpec || isSuper));
+                    doctorHtml = `
+                    <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm mt-10 overflow-hidden">
+                        <div class="p-6 border-b border-slate-100 bg-purple-50/50 flex items-center justify-between">
+                            <h4 class="font-extrabold text-slate-800 flex items-center"><i data-lucide="bar-chart-2" class="w-5 h-5 ml-2 text-purple-600"></i> تقييم ومتابعة تقدم الطلاب</h4>
+                            <span class="text-xs font-bold bg-white text-purple-700 border border-purple-200 px-3 py-1 rounded-full">${studentsInSpec.length} طالب مسجل</span>
+                        </div>
+                        <div class="max-h-80 overflow-y-auto no-scrollbar">
+                            <table class="w-full text-sm text-right">
+                                <thead class="bg-slate-50 text-slate-500 sticky top-0 border-b border-slate-100"><tr><th class="p-4 font-bold">اسم الطالب</th><th class="p-4 font-bold">الرقم الجامعي</th><th class="p-4 font-bold">نسبة الحضور والإنجاز</th></tr></thead>
+                                <tbody class="divide-y divide-slate-100">
+                                ${studentsInSpec.map(u => {
+                                    const aCount = lecs.filter(l => u.attendedLectures?.includes(l.id)).length;
+                                    const pct = lecs.length ? Math.round((aCount/lecs.length)*100) : 0;
+                                    let barColor = pct===100?'bg-emerald-500':pct>50?'bg-brand-500':pct>0?'bg-blue-500':'bg-slate-200';
+                                    return `
+                                    <tr class="hover:bg-slate-50/50 transition-colors">
+                                        <td class="p-4 font-bold text-slate-800">${u.displayName}</td>
+                                        <td class="p-4 text-slate-500 font-mono">${u.uniId || '-'}</td>
+                                        <td class="p-4">
+                                            <div class="flex items-center gap-3">
+                                                <span class="font-bold w-10 text-left ${barColor.replace('bg-', 'text-')}">${pct}%</span>
+                                                <div class="w-32 bg-slate-100 rounded-full h-2.5 overflow-hidden"><div class="${barColor} h-full rounded-full" style="width: ${pct}%"></div></div>
+                                            </div>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                                ${studentsInSpec.length===0?'<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">لا يوجد طلاب مسجلين في هذا التخصص لعرض التقييم</td></tr>':''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
+                }
+
+                html = `
+                <div class="animate-fade-in flex-grow flex flex-col">
+                    <button onclick="window.navigateTo('tabs')" class="mb-6 text-slate-500 font-bold flex items-center bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm w-max hover:shadow-md transition-all"><i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i> رجوع للمواد</button>
+                    
+                    <div class="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.03)] mb-8 flex items-center gap-5 relative overflow-hidden">
+                        <div class="absolute right-0 top-0 bottom-0 w-2 bg-brand-400"></div>
+                        <div class="bg-brand-50 border border-brand-100 p-4 rounded-2xl"><i data-lucide="monitor-play" class="w-8 h-8 text-brand-600"></i></div>
+                        <div><p class="text-slate-400 text-sm font-bold mb-1 uppercase tracking-widest">المحتوى التعليمي للمادة</p><h2 class="text-3xl font-black text-slate-900">${sub?.title}</h2></div>
+                    </div>
+                    
+                    ${progressHtml}
+
+                    ${canEdit ? `
+                    <form onsubmit="window.handleAddContent(event, 'lec')" class="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 mb-8 flex flex-col md:flex-row gap-4 items-end shadow-inner">
+                        <div class="flex-grow w-full md:w-auto">
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">عنوان الدرس/المحاضرة</label>
+                            <input type="text" id="lec-title" required placeholder="مثال: الفصل الأول - مقدمة" class="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm">
+                        </div>
+                        <div class="flex-grow w-full md:w-auto">
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">الرابط (Drive / YouTube)</label>
+                            <input type="url" id="lec-link" required placeholder="https://..." class="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm" dir="ltr">
+                        </div>
+                        <div class="w-full md:w-48 flex-shrink-0">
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5 ml-1">نوع المحتوى</label>
+                            <select id="lec-type" class="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-bold shadow-sm text-slate-700">
+                                <option value="video">🎥 محاضرة فيديو</option>
+                                <option value="pdf">📄 ملف PDF (ملزمة)</option>
+                                <option value="ppt">📊 عرض PowerPoint</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full md:w-auto h-[54px] bg-slate-900 text-white px-8 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md flex items-center justify-center whitespace-nowrap"><i data-lucide="upload-cloud" class="w-5 h-5 ml-2"></i> رفع المحتوى</button>
+                    </form>` : ''}
+                    
+                    <div class="space-y-4">
+                        ${lecs.map((lec, index) => {
+                            let icon = 'play-circle', color = 'blue', text = 'مشاهدة الفيديو', bgGlow = 'bg-blue-50';
+                            if(lec.type === 'pdf') { icon = 'file-text'; color = 'red'; text = 'فتح الملف'; bgGlow = 'bg-red-50'; }
+                            if(lec.type === 'ppt') { icon = 'presentation'; color = 'orange'; text = 'عرض التقديم'; bgGlow = 'bg-orange-50'; }
+                            
+                            const isAttended = state.user.role === 'student' && state.user.attendedLectures?.includes(lec.id);
+
+                            return `
+                            <div class="bg-white p-5 sm:p-6 rounded-2xl border ${isAttended ? 'border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)] bg-emerald-50/20' : 'border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 transition-all group animate-slide-up" style="animation-delay: ${index * 0.05}s">
+                                <div class="flex items-center gap-5">
+                                    <div class="${bgGlow} text-${color}-500 p-4 rounded-2xl border border-${color}-100 group-hover:scale-110 transition-transform"><i data-lucide="${icon}" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-xs font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-wider">#${String(index + 1).padStart(2, '0')}</span>
+                                            ${isAttended ? '<span class="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded flex items-center"><i data-lucide="check-check" class="w-3 h-3 ml-1"></i> مكتمل</span>' : ''}
+                                        </div>
+                                        <span class="font-extrabold text-lg text-slate-900 group-hover:text-${color}-700 transition-colors">${lec.title}</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3 w-full sm:w-auto">
+                                    ${state.user.role === 'student' ? `
+                                        <button onclick="window.toggleAttendance('${lec.id}')" class="px-5 py-3 rounded-xl font-bold text-sm border flex items-center justify-center flex-1 sm:flex-none transition-all ${isAttended ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-700' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}">
+                                            <i data-lucide="${isAttended ? 'check-circle-2' : 'circle'}" class="w-5 h-5 ml-1.5"></i> ${isAttended ? 'مقروء / تم الحضور' : 'تعليم كمكتمل'}
+                                        </button>
+                                    ` : ''}
+                                    <a href="${lec.link}" target="_blank" class="flex-1 sm:flex-none justify-center text-white bg-${color}-500 px-6 py-3 rounded-xl font-bold text-sm flex items-center hover:bg-${color}-600 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                                        <i data-lucide="external-link" class="w-4 h-4 ml-1.5"></i> ${text}
+                                    </a>
+                                    ${canEdit ? `<button onclick="window.requestDelete('${lec.id}', 'lec')" class="text-red-400 hover:text-red-600 bg-white border border-transparent hover:border-red-100 hover:bg-red-50 px-4 py-3 rounded-xl transition-colors" title="حذف المحتوى"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : ''}
+                                </div>
+                            </div>
+                        `}).join('')}
+                        ${lecs.length === 0 ? '<div class="flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-dashed border-slate-300"><div class="bg-slate-50 p-4 rounded-full mb-4"><i data-lucide="inbox" class="w-10 h-10 text-slate-400"></i></div><p class="text-slate-500 font-bold text-lg">لم يتم رفع محتوى تعليمي لهذه المادة بعد.</p></div>' : ''}
+                    </div>
+
+                    ${doctorHtml}
+                </div>`;
+            }
+
+            container.innerHTML = html;
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        document.addEventListener('DOMContentLoaded', renderApp);
+    </script>
+</body>
+</html>
