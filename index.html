@@ -109,8 +109,8 @@
         // عند رفعك للموقع على استضافتك، غير القيم لتصبح:
         // const apiKey = "AQ.Ab8RN6IE088sba0G9v_HYQ2CqOr6-t_0uWdzZFKW-ktCDWqjag";
         // const aiModel = "gemini-1.5-flash";
-        const apiKey = ""; 
-        const aiModel = "gemini-2.5-flash-preview-09-2025"; 
+        const apiKey = "AQ.Ab8RN6IE088sba0G9v_HYQ2CqOr6-t_0uWdzZFKW-ktCDWqjag"; 
+        const aiModel = "gemini-1.5-flash"; 
         
         const callGemini = async (promptData, systemPrompt = "أنت مساعد ذكي ومفيد. أجب باللغة العربية.") => {
             let contents = typeof promptData === 'string' ? [{ role: 'user', parts: [{ text: promptData }] }] : promptData;
