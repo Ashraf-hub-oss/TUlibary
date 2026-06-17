@@ -110,7 +110,7 @@
         // const apiKey = "AQ.Ab8RN6IE088sba0G9v_HYQ2CqOr6-t_0uWdzZFKW-ktCDWqjag";
         // const aiModel = "gemini-1.5-flash";
         const apiKey = "AQ.Ab8RN6IE088sba0G9v_HYQ2CqOr6-t_0uWdzZFKW-ktCDWqjag"; 
-        const aiModel = "gemini-1.5-flash"; 
+        const aiModel = "gemini-3.5-flash"; 
         
         const callGemini = async (promptData, systemPrompt = "أنت مساعد ذكي ومفيد. أجب باللغة العربية.") => {
             let contents = typeof promptData === 'string' ? [{ role: 'user', parts: [{ text: promptData }] }] : promptData;
@@ -124,7 +124,19 @@
                         systemInstruction: { parts: [{ text: systemPrompt }] }
                     })
                 });
+import { GoogleGenAI } from "@google/genai";
 
+const ai = new GoogleGenAI({ apiKey: "Q.Ab8RN6IE088sba0G9v_HYQ2CqOr6-t_0uWdzZFKW-ktCDWqjag" });
+
+async function main() {
+  const response = await ai.models.generateContent({
+    model: "gemini-3.5-flash",
+    contents: "Explain how AI works in a few words",
+  });
+  console.log(response.text);
+}
+
+main();
                 if (!response.ok) {
                     const errData = await response.json();
                     console.error("Gemini Error:", errData);
