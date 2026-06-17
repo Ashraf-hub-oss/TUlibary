@@ -124,16 +124,6 @@
                         systemInstruction: { parts: [{ text: systemPrompt }] }
                     })
                 });
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: "Q.Ab8RN6IE088sba0G9v_HYQ2CqOr6-t_0uWdzZFKW-ktCDWqjag" });
-
-async function main() {
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: "Explain how AI works in a few words",
-  });
-  console.log(response.text);
 }
 
 main();
