@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منصة الجامعة التكنولوجية</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- مكتبات مسح وتوليد QR Code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <!-- استدعاء Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+                    colors: {
+                        // اللون الأساسي Amber الهادئ
+                        brand: { 50: '#fffdf6', 100: '#fffbe6', 200: '#fff3c2', 300: '#ffe58a', 400: '#ffd043', 500: '#fcaf0b', 600: '#e18900', 700: '#bb6002', 800: '#984a08', 900: '#7c3d0b' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap');
+        
+        body { 
+            background-color: #faf9f6; 
+            -webkit-font-smoothing: antialiased;
+            color: #334155;
+            overflow-x: hidden;
+        }
+
+        /* الرسوميات المتحركة في الخلفية */
+        .bg-blobs {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: -1; overflow: hidden;
+            background: radial-gradient(at 0% 0%, rgba(252, 175, 11, 0.05) 0px, transparent 50%),
+                        radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
+                        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+        }
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: floatBlob 15s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes floatBlob {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(5vw, 10vh) scale(1.1); }
+            100% { transform: translate(-5vw, -5vh) scale(0.9); }
+        }
+
+        /* تأثير Glassmorphism الراقي */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05), 0 0 10px rgba(252, 175, 11, 0.02) inset;
+        }
+
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* الأزرار العصرية */
+        .btn-modern {
+            background: linear-gradient(135deg, #fcaf0b 0%, #e18900 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(252, 175, 11, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-modern::after {
+            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
+            transform: skewX(-20deg); transition: 0.5s;
+        }
+        .btn-modern:hover::after { left: 150%; }
+        .btn-modern:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(252, 175, 11, 0.4); }
+        .btn-modern:active { transform: translateY(1px); }
+
+        .btn-modern-outline {
+            background: rgba(255, 253, 246, 0.8); backdrop-filter: blur(10px);
+            color: #bb6002; border: 1px solid #fcaf0b;
+            box-shadow: 0 2px 8px rgba(252, 175, 11, 0.1); transition: all 0.3s ease;
+        }
+        .btn-modern-outline:hover { background: #fffbe6; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(252, 175, 11, 0.15); }
+
+        .tag-modern { background: linear-gradient(135deg, #ffffff 0%, #fffbe6 100%); border: 1px solid rgba(252, 175, 11, 0.2); color: #bb6002; font-weight: 800; }
+
+        .tab-btn { transition: all 0.3s ease; }
+        .tab-active { background-color: white; color: #bb6002; box-shadow: 0 4px 12px rgba(252, 175, 11, 0.1); font-weight: 800; border-radius: 0.75rem; border: 1px solid rgba(252, 175, 11, 0.2);}
+        .tab-inactive { color: #64748b; font-weight: 500; }
+        .tab-inactive:hover { color: #bb6002; background-color: rgba(255,255,255,0.8); }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #fcaf0b; border-radius: 10px; opacity: 0.5;}
+
+        /* إصلاح الكاميرا */
+        #qr-reader { width: 100% !important; max-width: 350px; margin: 0 auto; border: 3px solid #fcaf0b !important; border-radius: 1.5rem; overflow: hidden; background-color: #000; box-shadow: 0 10px 25px rgba(252, 175, 11, 0.2);}
+        #qr-reader video { width: 100% !important; height: auto !important; object-fit: cover !important; border-radius: 1.5rem; }
+        #qr-reader__dashboard_section_csr button { background: linear-gradient(135deg, #fcaf0b 0%, #e18900 100%); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-family: 'Tajawal'; font-weight: 800; margin-top: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(252, 175, 11, 0.3); }
+        #qr-reader__dashboard_section_swaplink { display: none !important; }
+
+        /* ستايل البطاقة الجامعية */
+        .id-card {
+            background: linear-gradient(135deg, #ffffff 0%, #fffdf6 100%);
+            box-shadow: 0 20px 40px -10px rgba(252, 175, 11, 0.2);
+            border: 1px solid rgba(252, 175, 11, 0.3);
+            position: relative; overflow: hidden;
+        }
+        .id-card::before {
+            content: ''; position: absolute; top: -50px; right: -50px; width: 150px; height: 150px;
+            background: radial-gradient(circle, rgba(252,175,11,0.15) 0%, transparent 70%); border-radius: 50%; pointer-events: none;
+        }
+    </style>
+</head>
+<body class="relative min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
+
+    <!-- الرسوميات المتحركة في الخلفية -->
+    <div class="bg-blobs">
+        <div class="blob bg-brand-300 w-96 h-96 rounded-full -top-20 -right-20"></div>
+        <div class="blob bg-blue-200 w-80 h-80 rounded-full top-1/3 -left-10" style="animation-delay: -5s;"></div>
+        <div class="blob bg-emerald-200 w-96 h-96 rounded-full -bottom-20 right-1/4" style="animation-delay: -10s;"></div>
+    </div>
+
+    <div id="app-root" class="flex-grow flex flex-col z-10 relative"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAs2wYMa4Fs5TJxLzZN616HTUaIxSb_7Bc",
+            authDomain: "tulibary-d35ae.firebaseapp.com",
+            databaseURL: "https://tulibary-d35ae-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "tulibary-d35ae",
+            storageBucket: "tulibary-d35ae.firebasestorage.app",
+            messagingSenderId: "107464097138",
+            appId: "1:107464097138:web:9147008aec9c0e0fa471eb"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const appIdStr = 'tech-library-v1';
+
+        const defaultSpecializations = [
+            { id: 'electrical', name: 'هندسة كهرباء', icon: 'zap', iconColor: 'text-brand-600', bgGlow: 'bg-brand-50' },
+            { id: 'civil', name: 'هندسة مدنية', icon: 'hard-hat', iconColor: 'text-blue-600', bgGlow: 'bg-blue-50' },
+            { id: 'architectural', name: 'هندسة معمارية', icon: 'building-2', iconColor: 'text-emerald-600', bgGlow: 'bg-emerald-50' }
+        ];
+        
+        const levels = [
+            { id: 'level_1', name: 'المستوى الأول', num: '01' }, { id: 'level_2', name: 'المستوى الثاني', num: '02' },
+            { id: 'level_3', name: 'المستوى الثالث', num: '03' }, { id: 'level_4', name: 'المستوى الرابع', num: '04' }, { id: 'level_5', name: 'المستوى الخامس', num: '05' }
+        ];
+
+        const ROLES_MAP = {
+            student: 'طالب', admin: 'مشرف قسم', doctor: 'دكتور/أستاذ', super_admin: 'مدير عام',
+            dean: 'عميد الكلية', finance: 'الحسابات المالية', security: 'أمن البوابة'
+        };
+
+        const state = {
+            isLoggedIn: false, user: null, currentView: 'home', showRegister: false,
+            selectedSpec: null, selectedLevel: null, selectedSubject: null,
+            activeTab: 'references', alert: { show: false, message: '', type: 'success' },
+            confirm: { show: false, id: null, type: '', message: '', extra: null },
+            searchBar: '', docFilters: { spec: 'all', level: 'all' }, 
+            references: [], subjects: [], lectures: [], exams: [], news: [], chats: [], dbUsers: [], dynamicSpecializations: [],
+            officialStudents: [], deanChats: [], submissions: [],
+            qrScanner: null, scannerActive: false, scannerMode: '', modals: { qrResult: null, submissionGrade: null }
+        };
+
+        window.getStudentNameByUniId = (uniId) => {
+            const dynamicStudent = state.officialStudents.find(s => s.uniId === uniId);
+            if (dynamicStudent) return dynamicStudent.fullName;
+            return null;
+        };
+
+        const getAllSpecializations = () => [...defaultSpecializations, ...state.dynamicSpecializations];
+        
+        auth.signInAnonymously().catch(err => console.error("Auth Error", err));
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                const basePath = `artifacts/${appIdStr}/public/data`;
+                db.collection(`${basePath}/references`).onSnapshot(s => { state.references = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/subjects`).onSnapshot(s => { state.subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/lectures`).onSnapshot(s => { state.lectures = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/exams`).onSnapshot(s => { state.exams = s.docs.map(d => ({ id: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/news`).onSnapshot(s => { state.news = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b)=>b.createdAt - a.createdAt); if (state.isLoggedIn && state.currentView === 'home') renderApp(); });
+                db.collection(`${basePath}/specializations`).onSnapshot(s => { state.dynamicSpecializations = s.docs.map(d => ({ docId: d.id, ...d.data() })); if (state.isLoggedIn) renderApp(); });
+                db.collection(`${basePath}/official_students`).onSnapshot(s => { state.officialStudents = s.docs.map(d => ({ docId: d.id, ...d.data() })); if(!state.isLoggedIn && state.showRegister) renderApp(); });
+                
+                db.collection(`${basePath}/chats`).orderBy('timestamp', 'asc').onSnapshot(s => { 
+                    state.chats = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+                    if (state.isLoggedIn && state.activeTab === 'chat') { renderApp(); setTimeout(() => { const chatBox = document.getElementById('department-chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; }, 50); }
+                });
+
+                db.collection(`${basePath}/dean_chats`).orderBy('timestamp', 'asc').onSnapshot(s => {
+                    state.deanChats = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                    if (state.isLoggedIn && state.currentView === 'dean_board') { renderApp(); setTimeout(() => { const b = document.getElementById('dean-chat-box'); if(b) b.scrollTop = b.scrollHeight; }, 50); }
+                });
+
+                db.collection(`${basePath}/submissions`).orderBy('timestamp', 'desc').onSnapshot(s => {
+                    state.submissions = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                    if (state.isLoggedIn) renderApp();
+                });
+
+                db.collection(`${basePath}/users`).onSnapshot(s => { 
+                    state.dbUsers = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+                    if(state.user && state.user.id) {
+                        const updatedUser = state.dbUsers.find(u => u.id === state.user.id);
+                        if(updatedUser) state.user = updatedUser;
+                    }
+                    renderApp();
+                });
+            }
+        });
+
+        window.showAlert = (msg, type = 'success') => { state.alert = { show: true, message: msg, type }; renderApp(); setTimeout(() => { state.alert.show = false; renderApp(); }, 3000); };
+        window.formatTime = (timestamp) => new Date(timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        window.toggleRegister = () => { state.showRegister = !state.showRegister; renderApp(); };
+
+        window.handleLogin = (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+            const errDiv = document.getElementById('login-error');
+            let matchedUser = null;
+            
+            if (u === 'ashraf' && p === '0119852715') {
+                matchedUser = { id: 'super_1', username: 'م. أشرف (المدير العام)', role: 'super_admin', specialization: 'all', attendedLectures: [] };
+            } else {
+                const dbUser = state.dbUsers.find(user => user.username === u && user.password === p);
+                if (dbUser) matchedUser = dbUser;
+            }
+
+            if (matchedUser) { 
+                state.user = matchedUser; state.isLoggedIn = true; 
+                if(matchedUser.role === 'finance') state.currentView = 'finance_board';
+                else if(matchedUser.role === 'security') state.currentView = 'security_board';
+                else if(matchedUser.role === 'dean') state.currentView = 'dean_board';
+                else if(matchedUser.role === 'doctor') state.currentView = 'doctor_board';
+                else state.currentView = 'home';
+                renderApp(); 
+            } else { errDiv.classList.remove('hidden'); errDiv.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4 ml-1"></i> بيانات الدخول غير صحيحة'; lucide.createIcons(); }
+        };
+
+        window.checkStudentName = (val) => {
+            const cleanVal = val.replace(/\D/g, ''); 
+            const previewEl = document.getElementById('student-name-preview');
+            if(cleanVal.length > 3) {
+                const studentName = window.getStudentNameByUniId(cleanVal);
+                if(studentName) previewEl.innerHTML = `<div class="text-emerald-600 font-bold text-sm bg-emerald-50 p-2 rounded-lg border border-emerald-100"><i data-lucide="check-circle" class="w-4 h-4 inline-block align-middle"></i> ${studentName}</div>`;
+                else previewEl.innerHTML = `<div class="text-red-500 font-bold text-sm bg-red-50 p-2 rounded-lg border border-red-100"><i data-lucide="x-circle" class="w-4 h-4 inline-block align-middle"></i> غير مدرج بالكشوفات.</div>`;
+                lucide.createIcons();
+            } else { previewEl.innerHTML = ''; }
+        };
+
+        window.handleStudentRegister = async (e) => {
+            e.preventDefault();
+            const uniIdRaw = document.getElementById('reg-uni-id').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            const specId = document.getElementById('reg-spec').value;
+            const batchYear = document.getElementById('reg-batch').value;
+            const errDiv = document.getElementById('reg-error');
+            const cleanUniId = uniIdRaw.replace(/\D/g, '');
+            const fullName = window.getStudentNameByUniId(cleanUniId);
+
+            if(!fullName) { errDiv.classList.remove('hidden'); errDiv.innerHTML = 'الرقم الجامعي غير مسجل بالكشوفات.'; return; }
+            if(state.dbUsers.find(u => u.uniId === cleanUniId || u.username === cleanUniId)) { errDiv.classList.remove('hidden'); errDiv.innerHTML = 'الحساب مسجل مسبقاً.'; return; }
+
+            try {
+                await db.collection(`artifacts/${appIdStr}/public/data/users`).add({
+                    displayName: fullName, username: cleanUniId, password: password, uniId: cleanUniId,
+                    role: 'student', specialization: specId, batchYear: batchYear,
+                    attendedLectures: [], points: 0, feesRequired: 0, feesPaid: 0, isBanned: false, banReason: '', createdAt: Date.now()
+                });
+                window.showAlert('تم إنشاء الحساب بنجاح! قم بتسجيل الدخول'); state.showRegister = false; renderApp();
+            } catch (err) { errDiv.classList.remove('hidden'); errDiv.innerHTML = 'حدث خطأ.'; }
+        };
+
+        window.saveStudentBatch = async (e) => { e.preventDefault(); const batch = document.getElementById('force-batch-select').value; if(!batch) return; try { await db.collection(`artifacts/${appIdStr}/public/data/users`).doc(state.user.id).update({ batchYear: batch }); window.showAlert('تم حفظ سنة الدفعة بنجاح'); } catch(err) { window.showAlert('خطأ في الحفظ', 'error'); } };
+        window.handleLogout = () => { window.stopQRScanner(); state.isLoggedIn = false; state.user = null; state.currentView = 'home'; renderApp(); };
+        window.navigateTo = (view, spec = null, level = null, sub = null) => { window.stopQRScanner(); state.currentView = view; if (spec) state.selectedSpec = spec; if (level) state.selectedLevel = level; if (sub) state.selectedSubject = sub; if(view === 'levels') state.activeTab = 'references'; renderApp(); };
+        window.switchTab = (tab) => { state.activeTab = tab; renderMainContent(); if(tab === 'chat') setTimeout(() => { const chatBox = document.getElementById('department-chat-box'); if(chatBox) chatBox.scrollTop = chatBox.scrollHeight; }, 50); };
+
+        window.saveFinanceFees = async (e) => {
+            e.preventDefault();
+            const spec = document.getElementById('fin-spec').value;
+            const batch = document.getElementById('fin-batch').value;
+            const amount = parseFloat(document.getElementById('fin-amount').value);
+            if (isNaN(amount) || amount < 0) return window.showAlert('مبلغ غير صالح', 'error');
+
+            let targetStudents = state.dbUsers.filter(u => u.role === 'student');
+            if(spec !== 'all') targetStudents = targetStudents.filter(u => u.specialization === spec);
+            if(batch !== 'all') targetStudents = targetStudents.filter(u => u.batchYear === batch);
+
+            if(targetStudents.length === 0) return window.showAlert('لا يوجد طلاب بهذه المواصفات لتطبيق الرسوم عليهم', 'error');
+            
+            try {
+                let batchOp = db.batch(); let count = 0;
+                targetStudents.forEach(stu => {
+                    const userRef = db.collection(`artifacts/${appIdStr}/public/data/users`).doc(stu.id);
+                    batchOp.update(userRef, { feesRequired: amount }); count++;
+                });
+                await batchOp.commit(); window.showAlert(`تم تعيين رسوم (${amount}) لعدد ${count} طالب`);
+            } catch(e) { window.showAlert('فشل تطبيق الرسوم', 'error'); }
+        };
+
+        window.updateStudentPayment = async (userId, paidAmount, requiredAmount) => {
+            const val = prompt(`تحديث السداد المالي\nالمطلوب كلياً: ${requiredAmount}\nالمدفوع حالياً: ${paidAmount}\n\nأدخل المبلغ المدفوع الجديد الإجمالي:`, paidAmount || 0);
+            if (val === null || val === "") return;
+            const parsed = parseFloat(val);
+            if (isNaN(parsed) || parsed < 0) return window.showAlert('قيمة غير صالحة', 'error');
+            
+            try {
+                const userRef = db.collection(`artifacts/${appIdStr}/public/data/users`).doc(userId);
+                let updateData = { feesPaid: parsed };
+                if (parsed >= requiredAmount && requiredAmount > 0) { updateData.isBanned = false; updateData.banReason = ''; }
+                await userRef.update(updateData); window.showAlert('تم التحديث بنجاح');
+            } catch(e) { window.showAlert('فشل التحديث', 'error'); }
+        };
+
+        window.toggleStudentBan = async (userId, currentStatus) => {
+            const reason = !currentStatus ? prompt("أدخل سبب حظر الدخول:") : "";
+            if(!currentStatus && reason === null) return;
+            try { await db.collection(`artifacts/${appIdStr}/public/data/users`).doc(userId).update({ isBanned: !currentStatus, banReason: reason || '' }); window.showAlert('تم تحديث حالة الحظر'); } catch(e) { window.showAlert('فشل', 'error'); }
+        };
+
+        window.handleAddContent = async (e, type) => { 
+            e.preventDefault(); const data = { spec: state.selectedSpec, level: state.selectedLevel, createdAt: Date.now() }; let coll = ''; 
+            if (type === 'ref') { coll = 'references'; data.title = document.getElementById('ref-title').value; data.author = document.getElementById('ref-author').value; data.link = document.getElementById('ref-link').value; } 
+            else if (type === 'exam') { coll = 'exams'; data.title = document.getElementById('exam-title').value; data.link = document.getElementById('exam-link').value; } 
+            else if (type === 'sub') { coll = 'subjects'; data.title = document.getElementById('sub-title').value; data.doctorId = state.user.id; } 
+            else if (type === 'lec') { coll = 'lectures'; data.subjectId = state.selectedSubject; data.title = document.getElementById('lec-title').value; data.type = document.getElementById('lec-type').value; data.link = document.getElementById('lec-link').value; } 
+            try { await db.collection(`artifacts/${appIdStr}/public/data/${coll}`).add(data); window.showAlert('تم الإضافة بنجاح'); e.target.reset(); } catch (err) { window.showAlert('فشل', 'error'); }
+        };
+
+        window.submitAssignment = async (e) => { e.preventDefault(); const link = document.getElementById('assign-link').value; const subId = document.getElementById('assign-subject').value; try { await db.collection(`artifacts/${appIdStr}/public/data/submissions`).add({ studentId: state.user.id, studentName: state.user.displayName, subjectId: subId, link: link, grade: null, visibleToStudent: false, timestamp: Date.now() }); window.showAlert('تم تسليم الملف بنجاح'); e.target.reset(); } catch (err) { window.showAlert('فشل', 'error'); } };
+        window.saveSubmissionGrade = async (e) => { e.preventDefault(); try { await db.collection(`artifacts/${appIdStr}/public/data/submissions`).doc(state.modals.submissionGrade.id).update({ grade: document.getElementById('grade-val').value, visibleToStudent: document.getElementById('grade-vis').checked }); state.modals.submissionGrade = null; window.showAlert('تم التقييم بنجاح'); } catch(err) { window.showAlert('فشل', 'error'); } };
+        window.toggleAttendance = async (lecId) => { if(!state.user || state.user.role !== 'student') return; const isAttended = state.user.attendedLectures?.includes(lecId); try { const userRef = db.collection(`artifacts/${appIdStr}/public/data/users`).doc(state.user.id); if(isAttended) { await userRef.update({ attendedLectures: firebase.firestore.FieldValue.arrayRemove(lecId) }); } else { await userRef.update({ attendedLectures: firebase.firestore.FieldValue.arrayUnion(lecId) }); } } catch (err) {} };
+
+        window.handleAddUser = async (e) => { e.preventDefault(); try { await db.collection(`artifacts/${appIdStr}/public/data/users`).add({ displayName: document.getElementById('new-user-name').value, username: document.getElementById('new-user-id').value, password: document.getElementById('new-user-pass').value, role: document.getElementById('new-user-role').value, specialization: document.getElementById('new-user-spec').value, createdAt: Date.now() }); window.showAlert('تم إنشاء الحساب!'); e.target.reset(); } catch (err) { window.showAlert('فشل', 'error'); } };
+        window.handleAddOfficialStudent = async (e) => { e.preventDefault(); const cleanUniId = document.getElementById('official-student-uni-id').value.trim().replace(/\D/g, ''); if(window.getStudentNameByUniId(cleanUniId)) return window.showAlert('مسجل مسبقاً', 'error'); try { await db.collection(`artifacts/${appIdStr}/public/data/official_students`).doc(cleanUniId).set({ fullName: document.getElementById('official-student-name').value.trim(), uniId: cleanUniId, addedBy: state.user.username, createdAt: Date.now() }); window.showAlert('تم الإدراج'); e.target.reset(); } catch (error) { window.showAlert('فشل', 'error'); } };
+        
+        // رفع الـ CSV
+        window.handleCSVUpload = () => {
+            const fileInput = document.getElementById('csv-file');
+            const file = fileInput.files[0];
+            if (!file) return window.showAlert('يرجى اختيار ملف CSV أولاً', 'error');
+
+            window.showAlert('جاري معالجة الملف واستخراج البيانات...', 'success');
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n');
+                    let addedCount = 0; let batch = db.batch(); let batchCount = 0;
+
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].split(',');
+                        if (line.length >= 2) {
+                            let uniId = ''; let fullName = '';
+                            line.forEach(cell => {
+                                const clean = cell.replace(/["\r]/g, '').trim();
+                                if (/^\d+$/.test(clean) && clean.length >= 5) uniId = clean;
+                                else if (clean.length > 5 && !/^\d+$/.test(clean)) fullName = clean;
+                            });
+
+                            if (uniId && fullName && !state.officialStudents.find(s => s.uniId === uniId)) {
+                                const docRef = db.collection(`artifacts/${appIdStr}/public/data/official_students`).doc(uniId);
+                                batch.set(docRef, { fullName, uniId, addedBy: state.user.username, createdAt: Date.now() });
+                                batchCount++; addedCount++;
+                                if (batchCount === 490) { await batch.commit(); batch = db.batch(); batchCount = 0; }
+                            }
+                        }
+                    }
+                    if (batchCount > 0) await batch.commit();
+                    window.showAlert(`اكتمل! تم إدراج ${addedCount} طالب بنجاح.`, 'success');
+                    fileInput.value = '';
+                } catch(err) { window.showAlert('خطأ في معالجة الملف. تأكد من صيغته (CSV)', 'error'); }
+            };
+            reader.readAsText(file, 'UTF-8');
+        };
+
+        window.handleAddSpecialization = async (e) => { e.preventDefault(); try { await db.collection(`artifacts/${appIdStr}/public/data/specializations`).add({ id: 'spec_' + Date.now(), name: document.getElementById('new-spec-title').value, icon: 'book', iconColor: `text-brand-600`, bgGlow: `bg-brand-50`, createdAt: Date.now() }); window.showAlert('تم تأسيس القسم!'); e.target.reset(); } catch (err) { window.showAlert('فشل', 'error'); } };
+        window.handleAddNews = async (e) => { e.preventDefault(); try { await db.collection(`artifacts/${appIdStr}/public/data/news`).add({ title: document.getElementById('news-title').value, content: document.getElementById('news-content').value, author: state.user.username, createdAt: Date.now() }); window.showAlert('تم النشر'); e.target.reset(); } catch (err) { window.showAlert('فشل', 'error'); } };
+        window.requestDelete = (id, type) => { state.confirm = { show: true, id, type, message: 'هل أنت متأكد من الحذف النهائي؟' }; renderApp(); };
+        window.cancelDelete = () => { state.confirm = { show: false, id: null, type: '', message: '' }; renderApp(); };
+        window.executeDelete = async () => { if (!auth.currentUser || !state.confirm.id) return; let collName = state.confirm.type === 'user' ? 'users' : state.confirm.type === 'ref' ? 'references' : state.confirm.type === 'exam' ? 'exams' : state.confirm.type === 'sub' ? 'subjects' : state.confirm.type === 'news' ? 'news' : state.confirm.type === 'chat' ? 'chats' : state.confirm.type === 'spec' ? 'specializations' : 'lectures'; try { await db.collection(`artifacts/${appIdStr}/public/data/${collName}`).doc(state.confirm.id).delete(); window.showAlert('تم الحذف'); } catch (err) { window.showAlert('فشل', 'error'); } finally { window.cancelDelete(); } };
+        window.sendDeanChat = async (e) => { e.preventDefault(); const text = document.getElementById('dean-chat-input').value.trim(); if(!text) return; document.getElementById('dean-chat-input').value = ''; try { await db.collection(`artifacts/${appIdStr}/public/data/dean_chats`).add({ senderId: state.user.id, senderName: state.user.displayName || state.user.username, role: state.user.role, text: text, timestamp: Date.now() }); } catch (err) {} };
+        window.handleSendChatMessage = async (e) => { e.preventDefault(); const text = document.getElementById('chat-msg-input').value.trim(); if(!text) return; document.getElementById('chat-msg-input').value = ''; try { await db.collection(`artifacts/${appIdStr}/public/data/chats`).add({ specId: state.selectedSpec, senderId: state.user.id, senderName: state.user.displayName || state.user.username, senderRole: state.user.role, text: text, timestamp: Date.now() }); } catch (err) {} };
+
+        window.startQRScanner = (mode) => {
+            state.scannerActive = true;
+            state.scannerMode = mode;
+            renderApp();
+
+            setTimeout(() => {
+                const qrElement = document.getElementById("qr-reader");
+                if(!qrElement) { window.showAlert('حدث خطأ في تحميل الكاميرا', 'error'); return; }
+
+                try {
+                    // تحديث إعدادات الماسح ليكون أكثر دقة وتركيزاً على رموز الـ QR فقط
+                    const scanner = new Html5QrcodeScanner("qr-reader", { 
+                        fps: 15, 
+                        qrbox: { width: 250, height: 250 }, 
+                        aspectRatio: 1.0, 
+                        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ] 
+                    }, false);
+                    
+                    state.qrScanner = scanner;
+                    scanner.render(async (decodedText) => {
+                        scanner.pause(true);
+                        const student = state.dbUsers.find(u => u.uniId === decodedText && u.role === 'student');
+                        if(!student) { state.modals.qrResult = { type: 'error', title: 'غير مسجل', msg: 'البطاقة غير مدرجة في النظام' }; } 
+                        else if (state.scannerMode === 'security') {
+                            const required = student.feesRequired || 0; const paid = student.feesPaid || 0;
+                            if(student.isBanned) state.modals.qrResult = { type: 'error', title: 'ممنوع الدخول', msg: `الطالب محظور: ${student.banReason}` };
+                            else if(required > 0 && paid < required) state.modals.qrResult = { type: 'error', title: 'مراجعة الحسابات', msg: `غير مسدد للرسوم. (دفع ${paid} من ${required})` };
+                            else state.modals.qrResult = { type: 'success', title: 'مسموح الدخول', msg: `الطالب: ${student.displayName}` };
+                        } 
+                        else if (state.scannerMode === 'doctor') {
+                            try { await db.collection(`artifacts/${appIdStr}/public/data/users`).doc(student.id).update({ points: firebase.firestore.FieldValue.increment(5) }); state.modals.qrResult = { type: 'success', title: 'تم تسجيل الحضور', msg: `تم إضافة 5 درجات للطالب ${student.displayName}` }; } catch(e) { state.modals.qrResult = { type: 'error', title: 'خطأ', msg: 'فشل التسجيل' }; }
+                        }
+                        renderApp(); setTimeout(() => { state.modals.qrResult = null; if(state.qrScanner) state.qrScanner.resume(); renderApp(); }, 3500);
+                    }, (err) => { /* صامت */ });
+                } catch (err) { window.showAlert('يرجى التأكد من إعطاء المتصفح صلاحية الكاميرا.', 'error'); }
+            }, 500); 
+        };
+
+        window.stopQRScanner = () => { if(state.qrScanner) { state.qrScanner.clear().catch(e => console.log(e)); state.qrScanner = null; } state.scannerActive = false; renderApp(); };
+
+        window.startNFCScanner = async () => {
+            if ('NDEFReader' in window) {
+                try {
+                    const ndef = new NDEFReader();
+                    await ndef.scan();
+                    window.showAlert("جاري تشغيل المستشعر... قم بتمرير بطاقة الطالب خلف الهاتف", "success");
+                    ndef.onreading = event => {
+                        const message = event.message;
+                        for (const record of message.records) {
+                            const textDecoder = new TextDecoder(record.encoding);
+                            const decodedText = textDecoder.decode(record.data);
+                            const student = state.dbUsers.find(u => u.uniId === decodedText && u.role === 'student');
+                            if(!student) { state.modals.qrResult = { type: 'error', title: 'البطاقة غير مسجلة', msg: 'رقم البطاقة غير مدرج.' }; renderApp(); return; }
+                            
+                            if (state.currentView === 'security_board') {
+                                const required = student.feesRequired || 0; const paid = student.feesPaid || 0;
+                                if(student.isBanned) state.modals.qrResult = { type: 'error', title: 'ممنوع الدخول', msg: `الطالب محظور: ${student.banReason}` };
+                                else if(required > 0 && paid < required) state.modals.qrResult = { type: 'error', title: 'مراجعة الحسابات', msg: `غير مسدد للرسوم.` };
+                                else state.modals.qrResult = { type: 'success', title: 'مسموح الدخول', msg: `الطالب: ${student.displayName}` };
+                            } else if (state.currentView === 'doctor_board') {
+                                db.collection(`artifacts/${appIdStr}/public/data/users`).doc(student.id).update({ points: firebase.firestore.FieldValue.increment(5) });
+                                state.modals.qrResult = { type: 'success', title: 'تم الحضور بنجاح', msg: `تم إضافة 5 درجات للطالب ${student.displayName}` };
+                            }
+                            renderApp(); setTimeout(() => { state.modals.qrResult = null; renderApp(); }, 4000);
+                        }
+                    };
+                } catch(e) { window.showAlert("حدث خطأ في تشغيل NFC.", "error"); }
+            } else { window.showAlert("ميزة NFC غير مدعومة في جهازك.", "error"); }
+        };
+
+        function refreshIcons() { if (typeof lucide !== 'undefined') lucide.createIcons(); }
+
+        window.renderApp = function() {
+            const root = document.getElementById('app-root');
+            const currentSpecsList = getAllSpecializations();
+            
+            if (state.isLoggedIn && state.user.role === 'student' && !state.user.batchYear) {
+                root.innerHTML = `
+                <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                    <div class="glass-card p-8 rounded-[2rem] w-full max-w-md text-center animate-slide-up">
+                        <div class="bg-brand-50 w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-6"><i data-lucide="graduation-cap" class="w-10 h-10 text-brand-600"></i></div>
+                        <h2 class="text-2xl font-black text-slate-800 mb-2">تحديث بياناتك إلزامي!</h2>
+                        <p class="text-slate-600 font-medium mb-6">يرجى تحديد الدفعة الخاصة بك (سنة الالتحاق) للمتابعة. هذا الاختيار لمرة واحدة فقط.</p>
+                        <form onsubmit="window.saveStudentBatch(event)" class="space-y-4">
+                            <select id="force-batch-select" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-center text-lg outline-none focus:border-brand-400"><option value="" disabled selected>-- اختر سنة الدفعة --</option><option value="2021">دفعة 2021</option><option value="2022">دفعة 2022</option><option value="2023">دفعة 2023</option><option value="2024">دفعة 2024</option></select>
+                            <button type="submit" class="w-full btn-modern font-bold py-4 rounded-xl text-lg">حفظ ومتابعة إلى المنصة</button>
+                        </form>
+                    </div>
+                </div>`;
+                refreshIcons(); return;
+            }
+
+            if (!state.isLoggedIn) {
+                root.innerHTML = `
+                <div class="min-h-screen flex flex-col justify-center items-center relative p-4">
+                    <div class="glass-card p-8 sm:p-10 rounded-[2.5rem] w-full max-w-md text-center animate-slide-up relative overflow-hidden">
+                        <div class="mb-6 flex justify-center"><div class="bg-gradient-to-br from-brand-400 to-brand-600 w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center rounded-[2rem] shadow-lg shadow-brand-500/30 transform rotate-3"><i data-lucide="library" class="w-12 h-12 text-white transform -rotate-3"></i></div></div>
+                        ${!state.showRegister ? `
+                            <h2 class="text-3xl font-extrabold mb-2 text-slate-800 tracking-tight">منصة الجامعة <span class="text-brand-600">التكنولوجية</span></h2>
+                            <p class="text-slate-500 mb-8 font-medium text-lg">بوابتك نحو التميز الأكاديمي ✨</p>
+                            <form onsubmit="window.handleLogin(event)" class="space-y-4">
+                                <div id="login-error" class="hidden text-red-600 text-sm font-bold bg-red-50 p-3 rounded-xl flex items-center justify-center border border-red-100"></div>
+                                <div class="relative"><div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none"><i data-lucide="user" class="h-5 w-5 text-brand-500"></i></div><input type="text" id="username" required placeholder="الرقم الجامعي أو اسم المستخدم" class="w-full pr-12 pl-4 py-4 bg-white border border-slate-200 rounded-xl text-right font-mono outline-none focus:border-brand-400 focus:shadow-md transition-all" dir="rtl"></div>
+                                <div class="relative"><div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none"><i data-lucide="lock" class="h-5 w-5 text-brand-500"></i></div><input type="password" id="password" required placeholder="كلمة المرور" class="w-full pr-12 pl-4 py-4 bg-white border border-slate-200 rounded-xl text-right outline-none focus:border-brand-400 focus:shadow-md transition-all"></div>
+                                <button type="submit" class="w-full btn-modern font-bold py-4 rounded-xl text-lg mt-2 tracking-wide">دخول للمنصة</button>
+                            </form>
+                            <div class="mt-8 pt-6 border-t border-slate-100"><button type="button" onclick="window.toggleRegister()" class="w-full btn-modern-outline font-bold py-3.5 rounded-xl flex justify-center items-center"><i data-lucide="user-plus" class="w-4 h-4 ml-2"></i> تفعيل حساب طالب جديد</button></div>
+                        ` : `
+                            <h2 class="text-2xl font-extrabold mb-2 text-slate-800 flex justify-center items-center"><i data-lucide="user-plus" class="w-6 h-6 ml-2 text-brand-500"></i> تفعيل الحساب</h2>
+                            <form onsubmit="window.handleStudentRegister(event)" class="space-y-4 mt-6">
+                                <div id="reg-error" class="hidden text-red-600 text-sm font-bold bg-red-50 p-3 rounded-xl flex items-center justify-center border border-red-100"></div>
+                                <div class="text-right relative"><input type="text" id="reg-uni-id" onkeyup="window.checkStudentName(this.value)" required placeholder="الرقم الجامعي..." class="w-full p-4 bg-white border border-slate-200 rounded-xl font-mono text-right outline-none focus:border-brand-400 focus:shadow-md transition-all" dir="rtl"><div id="student-name-preview" class="mt-2 min-h-[24px]"></div></div>
+                                <select id="reg-batch" required class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-brand-400 focus:shadow-md transition-all"><option value="" disabled selected>سنة الالتحاق (الدفعة)...</option><option value="2021">دفعة 2021</option><option value="2022">دفعة 2022</option><option value="2023">دفعة 2023</option><option value="2024">دفعة 2024</option></select>
+                                <select id="reg-spec" required class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-brand-400 focus:shadow-md transition-all"><option value="" disabled selected>اختر التخصص...</option>${currentSpecsList.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                                <input type="password" id="reg-password" required placeholder="كلمة المرور الجديدة" class="w-full p-4 bg-white border border-slate-200 rounded-xl text-right outline-none focus:border-brand-400 focus:shadow-md transition-all">
+                                <button type="submit" class="w-full btn-modern font-bold py-4 rounded-xl mt-2">إنشاء الحساب</button>
+                            </form>
+                            <button type="button" onclick="window.toggleRegister()" class="mt-6 text-sm text-slate-500 font-bold hover:text-brand-600 transition-colors flex justify-center items-center w-full"><i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i> العودة لتسجيل الدخول</button>
+                        `}
+                    </div>
+                </div>`;
+            } else {
+                let appHTML = `
+                ${state.alert.show ? `<div class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-6 py-3.5 rounded-full z-50 shadow-2xl font-bold flex items-center animate-slide-up border border-white/20"><i data-lucide="${state.alert.type==='error'?'alert-octagon':'check-circle-2'}" class="w-5 h-5 ml-2 ${state.alert.type==='error'?'text-red-400':'text-brand-400'}"></i> ${state.alert.message}</div>` : ''}
+                ${state.confirm.show ? `<div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"><div class="glass-card rounded-[2rem] p-8 w-full max-w-sm text-center"><div class="mx-auto flex h-16 w-16 rounded-full bg-red-50 mb-5 items-center justify-center"><i data-lucide="alert-triangle" class="h-8 w-8 text-red-500"></i></div><h3 class="text-xl font-extrabold mb-2 text-slate-900">تأكيد الإجراء</h3><p class="text-sm text-slate-500 mb-6 font-medium">${state.confirm.message}</p><div class="flex gap-3"><button onclick="window.cancelDelete()" class="px-5 py-3 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold flex-1 hover:bg-slate-100">إلغاء</button><button onclick="window.executeDelete()" class="px-5 py-3 bg-red-500 text-white rounded-xl font-bold flex-1 shadow-md hover:bg-red-600">تأكيد</button></div></div></div>` : ''}
+                ${state.modals.qrResult ? `<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"><div class="glass-card rounded-[2rem] p-8 w-full max-w-sm text-center border-b-8 ${state.modals.qrResult.type==='success'?'border-green-500':'border-red-500'}"><div class="mx-auto flex h-20 w-20 rounded-full ${state.modals.qrResult.type==='success'?'bg-green-50 text-green-600':'bg-red-50 text-red-600'} mb-5 items-center justify-center"><i data-lucide="${state.modals.qrResult.type==='success'?'check-circle':'x-octagon'}" class="h-10 w-10"></i></div><h3 class="text-2xl font-extrabold mb-2 text-slate-900">${state.modals.qrResult.title}</h3><p class="font-bold text-slate-600 text-lg">${state.modals.qrResult.msg}</p></div></div>` : ''}
+                ${state.modals.submissionGrade ? `<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"><div class="glass-card rounded-[2rem] p-6 sm:p-8 w-full max-w-md relative"><button onclick="state.modals.submissionGrade=null;renderApp()" class="absolute top-4 left-4 p-2 bg-slate-50 rounded-full text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button><h3 class="text-2xl font-black mb-6 text-slate-800 border-b border-slate-100 pb-4">تقييم تسليم الطالب</h3><div class="mb-5 bg-slate-50 p-4 rounded-xl border border-slate-100"><p class="font-bold text-slate-700">الطالب: ${state.modals.submissionGrade.studentName}</p><a href="${state.modals.submissionGrade.link}" target="_blank" class="text-blue-600 underline font-bold mt-2 inline-block text-sm hover:text-blue-700"><i data-lucide="external-link" class="w-4 h-4 inline-block"></i> فتح المرفق المسلم</a></div><form onsubmit="window.saveSubmissionGrade(event)" class="space-y-4"><div><label class="font-bold block mb-2 text-sm text-slate-600">الدرجة الممنوحة:</label><input type="text" id="grade-val" required class="w-full p-4 bg-white border border-slate-200 rounded-xl text-center font-bold text-xl outline-none focus:border-brand-400" value="${state.modals.submissionGrade.grade || ''}"></div><label class="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer"><input type="checkbox" id="grade-vis" ${state.modals.submissionGrade.visibleToStudent?'checked':''} class="w-5 h-5 text-brand-500 rounded"><span class="font-bold text-slate-700">السماح للطالب برؤية النتيجة</span></label><button type="submit" class="w-full btn-modern font-bold py-4 rounded-xl mt-2">اعتماد وحفظ</button></form></div></div>` : ''}
+
+                <nav class="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
+                        <div class="flex items-center cursor-pointer group" onclick="window.navigateTo('home')">
+                            <div class="bg-gradient-to-br from-brand-400 to-brand-600 p-2.5 rounded-xl ml-3 shadow-md group-hover:scale-105 transition-transform"><i data-lucide="library" class="text-white w-6 h-6"></i></div>
+                            <span class="font-extrabold text-xl text-slate-900 hidden sm:block">منصة الجامعة <span class="text-brand-600">التكنولوجية</span></span>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-end">
+                            ${state.user.role === 'student' ? `<button onclick="window.navigateTo('student_id')" class="btn-modern-outline px-4 py-2.5 rounded-full font-bold text-xs sm:text-sm flex items-center"><i data-lucide="id-card" class="w-4 h-4 ml-1.5"></i> <span class="hidden sm:inline">البطاقة الجامعية</span></button>` : ''}
+                            ${state.user.role === 'super_admin' ? `<button onclick="window.navigateTo('admin_dashboard')" class="bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 rounded-full hover:bg-slate-100 font-bold text-xs sm:text-sm"><i data-lucide="settings" class="w-4 h-4 inline align-middle"></i> <span class="hidden sm:inline">الإدارة</span></button>` : ''}
+                            ${['dean', 'doctor', 'super_admin'].includes(state.user.role) ? `<button onclick="window.navigateTo('dean_board')" class="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-2 rounded-full hover:bg-amber-100 font-bold text-xs sm:text-sm"><i data-lucide="crown" class="w-4 h-4 inline align-middle"></i> <span class="hidden sm:inline">العمادة</span></button>` : ''}
+                            ${state.user.role === 'finance' ? `<button onclick="window.navigateTo('finance_board')" class="bg-green-50 text-green-700 border border-green-200 px-3 py-2 rounded-full font-bold text-xs sm:text-sm hover:bg-green-100"><i data-lucide="wallet" class="w-4 h-4 inline align-middle"></i> المالية</button>` : ''}
+                            ${state.user.role === 'security' ? `<button onclick="window.navigateTo('security_board')" class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded-full font-bold text-xs sm:text-sm hover:bg-blue-100"><i data-lucide="shield-check" class="w-4 h-4 inline align-middle"></i> الأمن</button>` : ''}
+                            ${state.user.role === 'doctor' ? `<button onclick="window.navigateTo('doctor_board')" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-full font-bold text-xs sm:text-sm hover:bg-indigo-100"><i data-lucide="stethoscope" class="w-4 h-4 inline align-middle"></i> <span class="hidden sm:inline">التقييم والحضور</span></button>` : ''}
+
+                            <div class="hidden md:flex items-center bg-white border border-slate-200 py-2 px-4 rounded-full shadow-sm"><i data-lucide="user-circle" class="w-4 h-4 ml-1.5 text-slate-400"></i><span class="text-sm font-bold text-slate-700 truncate max-w-[120px]">${state.user.displayName || state.user.username}</span></div>
+                            <button onclick="window.handleLogout()" class="bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 p-2 sm:p-2.5 rounded-full transition-colors border border-red-100"><i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
+                        </div>
+                    </div>
+                </nav>
+                <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow flex flex-col"></main>
+                `;
+                root.innerHTML = appHTML;
+                renderMainContent();
+            }
+            refreshIcons();
+        }
+
+        window.renderMainContent = function() {
+            const container = document.getElementById('main-content');
+            if(!container) return;
+            let html = '';
+            const currentSpecsList = getAllSpecializations();
+            const hasFullAccess = ['super_admin', 'dean', 'doctor', 'admin'].includes(state.user.role);
+            const canEditContent = ['super_admin', 'doctor', 'admin', 'dean'].includes(state.user.role);
+
+            if (state.currentView === 'student_id' && state.user.role === 'student') {
+                const specName = currentSpecsList.find(s => s.id === state.user.specialization)?.name || 'غير محدد';
+                html = `
+                <div class="animate-slide-up flex flex-col items-center justify-center min-h-[70vh]">
+                    <button onclick="window.navigateTo('home')" class="mb-6 text-slate-500 font-bold flex items-center bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm w-max hover:bg-slate-50 transition-colors self-start sm:self-auto"><i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i> العودة للرئيسية</button>
+                    
+                    <div class="id-card p-6 sm:p-8 rounded-[2rem] w-full max-w-md relative flex flex-col items-center text-center">
+                        <div class="absolute top-0 inset-x-0 h-3 bg-gradient-to-r from-brand-400 to-brand-600"></div>
+                        
+                        <div class="bg-white w-20 h-20 rounded-full border border-slate-100 flex items-center justify-center mb-4 shadow-md z-10">
+                            <i data-lucide="user" class="w-10 h-10 text-slate-300"></i>
+                        </div>
+                        
+                        <h2 class="text-2xl font-black text-slate-800 mb-1 z-10">${state.user.displayName}</h2>
+                        <p class="text-slate-500 font-mono text-lg font-bold tracking-widest z-10 mb-4">${state.user.uniId}</p>
+                        
+                        <div class="w-full bg-white/80 backdrop-blur p-4 rounded-xl border border-brand-100 mb-6 z-10 text-right shadow-sm">
+                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-bold text-slate-500">التخصص:</span> <span class="font-bold text-brand-700 text-sm">${specName}</span></div>
+                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-bold text-slate-500">الدفعة:</span> <span class="font-bold text-slate-800 text-sm">${state.user.batchYear || '---'}</span></div>
+                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-bold text-slate-500">النتيجة (النقاط):</span> <span class="font-black text-indigo-600 text-base">${state.user.points || 0} نقطة</span></div>
+                            <div class="flex justify-between items-center"><span class="text-sm font-bold text-slate-500">المالية:</span> <span class="font-bold text-sm flex items-center ${ (state.user.feesPaid||0) >= (state.user.feesRequired||0) && (state.user.feesRequired||0)>0 ? 'text-green-600' : 'text-red-500'}"><i data-lucide="${(state.user.feesPaid||0) >= (state.user.feesRequired||0) && (state.user.feesRequired||0)>0 ? 'check-circle' : 'alert-circle'}" class="w-3.5 h-3.5 ml-1"></i> ${(state.user.feesPaid||0) >= (state.user.feesRequired||0) && (state.user.feesRequired||0)>0 ? 'مسدد' : 'غير مسدد/مطالبة'}</span></div>
+                        </div>
+
+                        <div class="bg-white p-4 rounded-2xl shadow-inner border border-slate-200 z-10 mb-6" id="qr-container-full"></div>
+                        
+                        <div class="w-full flex justify-center gap-4 z-10">
+                            <button onclick="window.showAlert('يمكن الآن مسح هذه البطاقة عبر تقنية NFC من قِبل هاتف الأمن أو الدكتور', 'success')" class="flex flex-col items-center bg-brand-50 border border-brand-200 text-brand-600 px-6 py-3 rounded-xl shadow-sm hover:bg-brand-100 transition-colors">
+                                <i data-lucide="nfc" class="w-6 h-6 mb-1"></i>
+                                <span class="text-xs font-bold">جاهز للمسح (NFC)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+                
+                setTimeout(() => { 
+                    const qrEl = document.getElementById('qr-container-full'); 
+                    if(qrEl && state.user.uniId) { 
+                        qrEl.innerHTML = ''; 
+                        // تم تغيير اللون إلى الأسود الخالص وتقليل الكثافة لتسهيل القراءة الفورية عبر الكاميرا
+                        new QRCode(qrEl, { text: state.user.uniId, width: 160, height: 160, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M }); 
+                    } 
+                }, 150);
+            }
+
+            else if(state.currentView === 'admin_dashboard' && state.user.role === 'super_admin') {
+                html = `
+                <div class="animate-fade-in space-y-8">
+                    <div class="glass-card p-8 rounded-[2rem] text-center relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="absolute -left-10 -top-10 w-40 h-40 bg-brand-100 rounded-full blur-3xl opacity-60"></div>
+                        <div class="text-right">
+                            <h2 class="text-3xl font-black mb-2 text-slate-800">لوحة الإدارة الشاملة</h2>
+                            <p class="text-slate-500 font-bold text-lg flex items-center"><i data-lucide="shield-check" class="w-5 h-5 ml-2 text-brand-500"></i> المدير العام: ${state.user.username}</p>
+                        </div>
+                        <div class="bg-brand-50 border border-brand-100 p-4 rounded-2xl text-center min-w-[150px] shadow-sm">
+                            <p class="text-xs text-brand-600 font-bold mb-1">إجمالي الحسابات المسجلة</p>
+                            <p class="text-3xl font-black text-brand-700">${state.dbUsers.length}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="glass-card p-6 sm:p-8 rounded-3xl">
+                            <h3 class="font-black text-xl mb-6 flex items-center"><div class="bg-blue-50 text-blue-600 p-2 rounded-xl ml-3 border border-blue-100"><i data-lucide="user-plus" class="w-5 h-5"></i></div> إضافة حساب (فردي)</h3>
+                            <form onsubmit="window.handleAddUser(event)" class="space-y-4">
+                                <input type="text" id="new-user-name" required placeholder="الاسم الكامل" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" id="new-user-id" required placeholder="معرف الدخول" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400"><input type="text" id="new-user-pass" required placeholder="كلمة المرور" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <select id="new-user-role" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-brand-400"><option value="admin">مشرف قسم</option><option value="doctor">دكتور/أستاذ</option><option value="dean">عميد كلية</option><option value="finance">حسابات مالية</option><option value="security">أمن البوابة</option><option value="super_admin">مدير عام</option></select>
+                                    <select id="new-user-spec" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-brand-400"><option value="all">كل التخصصات</option>${currentSpecsList.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                                </div>
+                                <button type="submit" class="w-full btn-modern py-4 rounded-xl font-bold text-lg">إنشاء الحساب</button>
+                            </form>
+                        </div>
+                        
+                        <div class="glass-card p-6 sm:p-8 rounded-3xl">
+                            <h3 class="font-black text-xl mb-4 flex items-center"><div class="bg-indigo-50 text-indigo-600 p-2 rounded-xl ml-3 border border-indigo-100"><i data-lucide="file-spreadsheet" class="w-5 h-5"></i></div> إدراج طلاب بالكشوفات (الجملة)</h3>
+                            <p class="text-sm text-slate-500 font-medium mb-6">قم برفع ملف Excel (بعد حفظه كـ CSV UTF-8). سيقوم النظام باستخراج أسماء وأرقام الطلاب وإدراجهم تلقائياً.</p>
+                            <div class="flex flex-col gap-4 items-center">
+                                <input type="file" id="csv-file" accept=".csv" class="w-full bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+                                <button onclick="window.handleCSVUpload()" class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 shadow-md flex items-center justify-center transition-colors"><i data-lucide="upload-cloud" class="w-5 h-5 ml-2"></i> بدء الاستخراج والإدراج</button>
+                            </div>
+                        </div>
+
+                        <div class="glass-card p-6 sm:p-8 rounded-3xl col-span-1 lg:col-span-2">
+                            <h3 class="font-black text-xl mb-6 flex items-center"><div class="bg-emerald-50 text-emerald-600 p-2 rounded-xl ml-3 border border-emerald-100"><i data-lucide="layers" class="w-5 h-5"></i></div> تأسيس قسم أكاديمي</h3>
+                            <form onsubmit="window.handleAddSpecialization(event)" class="flex flex-col sm:flex-row gap-4 items-center"><input type="text" id="new-spec-title" required placeholder="اسم التخصص" class="w-full sm:w-auto flex-grow p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400"><button type="submit" class="w-full sm:w-auto px-8 py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-md transition-colors">إضافة القسم</button></form>
+                        </div>
+                        <div class="glass-card p-6 sm:p-8 rounded-3xl col-span-1 lg:col-span-2 max-h-[500px] overflow-hidden flex flex-col">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                <h3 class="font-black text-xl flex items-center"><i data-lucide="users" class="w-6 h-6 ml-2 text-slate-400"></i> إدارة الحسابات</h3>
+                                <div class="bg-white w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-200 flex items-center shadow-sm"><i data-lucide="search" class="w-4 h-4 text-slate-400 ml-2"></i><input type="text" placeholder="بحث..." class="bg-transparent w-full border-none outline-none text-sm font-bold sm:w-64" onkeyup="state.searchBar = this.value; renderApp()" value="${state.searchBar || ''}"></div>
+                            </div>
+                            <div class="overflow-x-auto flex-grow custom-scrollbar bg-white rounded-2xl border border-slate-100">
+                                <table class="w-full text-sm text-right whitespace-nowrap"><thead class="bg-slate-50 text-slate-500 border-b border-slate-100 sticky top-0"><tr><th class="p-4 font-bold">الاسم</th><th class="p-4 font-bold">الرقم / الدفعة</th><th class="p-4 font-bold">معرف الدخول</th><th class="p-4 font-bold">الدور</th><th class="p-4 font-bold text-center">إجراء</th></tr></thead>
+                                    <tbody class="divide-y divide-slate-100">${state.dbUsers.filter(u => (u.displayName||'').includes(state.searchBar) || (u.uniId||'').includes(state.searchBar) || (u.username||'').includes(state.searchBar)).map(u => `<tr class="hover:bg-slate-50"><td class="p-4 font-bold text-slate-800">${u.displayName}</td><td class="p-4 font-mono text-slate-500">${u.uniId || '---'} <span class="bg-slate-200 px-2 py-0.5 rounded font-sans text-xs">${u.batchYear || ''}</span></td><td class="p-4 text-slate-500 font-mono">${u.username} <span class="text-red-400 ml-2 text-xs">${u.password}</span></td><td class="p-4"><span class="tag-modern px-3 py-1 rounded-lg text-xs">${ROLES_MAP[u.role] || u.role}</span></td><td class="p-4 text-center"><button onclick="window.requestDelete('${u.id}','user')" class="text-red-400 hover:bg-red-50 hover:text-red-600 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button></td></tr>`).join('')}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            else if (state.currentView === 'finance_board' && state.user.role === 'finance') {
+                const students = state.dbUsers.filter(u => u.role === 'student');
+                html = `
+                <div class="animate-slide-up space-y-6">
+                    <div class="glass-card p-6 sm:p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div class="flex items-center gap-4">
+                            <div class="bg-green-50 border border-green-100 p-3 sm:p-4 rounded-2xl shadow-sm"><i data-lucide="wallet" class="w-8 h-8 text-green-600"></i></div>
+                            <div><h2 class="text-2xl sm:text-3xl font-black text-slate-800">الحسابات المالية</h2><p class="text-slate-500 font-bold mt-1 text-sm sm:text-base">تحديد الرسوم ومتابعة السداد</p></div>
+                        </div>
+                        <div class="bg-white w-full md:w-auto px-4 py-3 rounded-2xl border border-slate-200 flex items-center shadow-sm">
+                            <i data-lucide="search" class="w-5 h-5 text-slate-400 ml-2"></i>
+                            <input type="text" placeholder="بحث باسم أو رقم الطالب..." class="bg-transparent border-none outline-none font-bold w-full" onkeyup="state.searchBar = this.value; renderApp()" value="${state.searchBar || ''}">
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-3xl">
+                        <h3 class="font-black text-lg mb-5 text-slate-800 border-b border-slate-100 pb-3"><i data-lucide="calculator" class="w-5 h-5 ml-2 inline-block text-brand-600"></i> تحديد وتعيين الرسوم إجمالياً</h3>
+                        <form onsubmit="window.saveFinanceFees(event)" class="flex flex-col gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="w-full"><label class="block text-sm font-bold text-slate-600 mb-2">التخصص</label><select id="fin-spec" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-brand-400"><option value="all">كل الأقسام</option>${currentSpecsList.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select></div>
+                                <div class="w-full"><label class="block text-sm font-bold text-slate-600 mb-2">الدفعة</label><select id="fin-batch" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-brand-400"><option value="all">كل الدفعات</option><option value="2021">2021</option><option value="2022">2022</option><option value="2023">2023</option><option value="2024">2024</option></select></div>
+                                <div class="w-full"><label class="block text-sm font-bold text-slate-600 mb-2">المبلغ المطلوب تعيينه</label><input type="number" id="fin-amount" required placeholder="مثال: 50000" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold font-mono text-slate-800 text-left outline-none focus:border-brand-400" dir="ltr"></div>
+                            </div>
+                            <button type="submit" class="btn-modern w-full py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-2"><i data-lucide="check-circle" class="w-5 h-5"></i> تطبيق الرسوم</button>
+                        </form>
+                    </div>
+
+                    <div class="glass-card p-4 sm:p-6 rounded-3xl flex flex-col max-h-[65vh]">
+                        <div class="overflow-x-auto overflow-y-auto custom-scrollbar flex-grow bg-white rounded-2xl border border-slate-100">
+                            <table class="w-full text-sm text-right whitespace-nowrap min-w-[650px]"><thead class="bg-slate-50 text-slate-600 font-extrabold sticky top-0 z-10 border-b border-slate-200"><tr><th class="p-4">بيانات الطالب</th><th class="p-4">الدفعة والقسم</th><th class="p-4 text-center">الرسوم (المطلوب / المدفوع)</th><th class="p-4 text-center">حالة الدخول</th></tr></thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    ${students.filter(s => (s.displayName||'').includes(state.searchBar) || (s.uniId||'').includes(state.searchBar)).map(s => `
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="p-4"><p class="font-bold text-slate-800">${s.displayName}</p><p class="text-xs font-mono text-slate-500 mt-1">${s.uniId}</p></td>
+                                        <td class="p-4"><p class="font-bold text-slate-700 bg-slate-100 border border-slate-200 inline-block px-2 py-0.5 rounded shadow-sm">${s.batchYear || 'لم يحدد'}</p><p class="text-xs text-brand-600 mt-1.5 font-bold">${currentSpecsList.find(x=>x.id===s.specialization)?.name || ''}</p></td>
+                                        <td class="p-4 text-center"><div class="bg-white border border-slate-200 rounded-xl p-3 inline-flex flex-col items-center min-w-[140px] cursor-pointer hover:border-brand-400 hover:shadow-md transition-all group" onclick="window.updateStudentPayment('${s.id}', ${s.feesPaid || 0}, ${s.feesRequired || 0})"><span class="text-xs text-slate-500 font-bold mb-1 border-b border-slate-100 pb-1 w-full text-center">المطلوب: <span class="text-slate-800">${s.feesRequired || 0}</span></span><span class="font-black text-base mt-1 group-hover:scale-105 transition-transform ${ (s.feesPaid||0) >= (s.feesRequired||0) && (s.feesRequired||0)>0 ? 'text-green-600' : 'text-red-500'}">المدفوع: ${s.feesPaid || 0}</span></div></td>
+                                        <td class="p-4 text-center"><button onclick="window.toggleStudentBan('${s.id}', ${s.isBanned})" class="px-5 py-2.5 rounded-xl font-bold text-xs inline-flex items-center justify-center transition-all shadow-sm ${s.isBanned ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-red-600'}"><i data-lucide="${s.isBanned ? 'lock' : 'unlock'}" class="w-4 h-4 ml-1.5"></i> ${s.isBanned ? 'محظور (فك الحظر)' : 'سليم (حظر يدوي)'}</button></td>
+                                    </tr>`).join('')}
+                                </tbody>
+                            </table>
+                            ${students.length === 0 ? '<div class="p-8 text-center text-slate-500 font-bold">لا يوجد طلاب.</div>' : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            else if (state.currentView === 'security_board' && state.user.role === 'security') {
+                html = `
+                <div class="animate-slide-up flex flex-col items-center justify-center min-h-[75vh]">
+                    <div class="glass-card p-6 sm:p-10 rounded-[3rem] w-full max-w-lg text-center relative overflow-hidden">
+                        <div class="absolute -right-10 -top-10 w-32 h-32 bg-blue-100 rounded-full blur-3xl opacity-60"></div>
+                        <div class="bg-blue-50 border border-blue-100 w-20 h-20 sm:w-24 sm:h-24 rounded-[2rem] mx-auto flex items-center justify-center mb-6 relative z-10 shadow-sm"><i data-lucide="shield-check" class="w-10 h-10 sm:w-12 sm:h-12 text-blue-600"></i></div>
+                        <h2 class="text-2xl sm:text-3xl font-black mb-2 text-slate-800 relative z-10">بوابة الدخول (الأمن)</h2>
+                        <p class="text-slate-500 font-medium mb-8 text-sm sm:text-base relative z-10">امسح رمز QR الخاص بالطالب أو استخدم تقنية NFC للتحقق.</p>
+                        
+                        <div class="flex gap-3 justify-center mb-6 relative z-10">
+                            <button onclick="window.startNFCScanner()" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 shadow-md flex-1 transition-colors"><i data-lucide="nfc" class="w-5 h-5"></i> مسح بطاقة NFC</button>
+                        </div>
+
+                        <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm relative z-10">
+                            ${!state.scannerActive ? `
+                                <div class="py-8"><i data-lucide="qr-code" class="w-14 h-14 text-slate-300 mx-auto mb-4"></i><button onclick="window.startQRScanner('security')" class="btn-modern py-3.5 px-6 rounded-xl mx-auto flex items-center justify-center gap-2 w-full"><i data-lucide="camera" class="w-5 h-5"></i> فتح كاميرا الهاتف</button></div>
+                            ` : `
+                                <div class="relative w-full flex flex-col items-center">
+                                    <div id="qr-reader"></div>
+                                    <button onclick="window.stopQRScanner()" class="mt-4 bg-red-50 text-red-600 border border-red-200 font-bold py-2 px-6 rounded-xl hover:bg-red-100 transition-colors w-full"><i data-lucide="x" class="w-4 h-4 inline align-middle"></i> إغلاق الكاميرا</button>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            else if (state.currentView === 'doctor_board' && state.user.role === 'doctor') {
+                // نظام الفلترة الذكي لتقييمات الدكتور
+                let filteredSubs = state.submissions;
+                filteredSubs = filteredSubs.map(s => {
+                    const sub = state.subjects.find(x => x.id === s.subjectId);
+                    return { ...s, specId: sub?.spec, levelId: sub?.level, subjectTitle: sub?.title };
+                });
+                if (state.docFilters.spec !== 'all') filteredSubs = filteredSubs.filter(s => s.specId === state.docFilters.spec);
+                if (state.docFilters.level !== 'all') filteredSubs = filteredSubs.filter(s => s.levelId === state.docFilters.level);
+
+                html = `
+                <div class="animate-slide-up space-y-6">
+                    <button onclick="window.navigateTo('home')" class="text-slate-500 font-bold flex items-center bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm w-max hover:bg-slate-50 transition-colors"><i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i> تصفح المواد (لإضافة الدروس)</button>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- ماسح الحضور -->
+                        <div class="glass-card p-6 sm:p-8 rounded-[2rem] flex flex-col items-center text-center relative overflow-hidden">
+                            <div class="absolute -right-10 -top-10 w-32 h-32 bg-indigo-50 rounded-full blur-3xl opacity-60"></div>
+                            <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl mb-4 relative z-10"><i data-lucide="scan-face" class="w-8 h-8 text-indigo-600"></i></div>
+                            <h3 class="text-2xl font-black text-slate-800 mb-2 relative z-10">تسجيل الحضور الإلكتروني</h3><p class="text-slate-500 font-medium mb-6 text-sm relative z-10">امسح بطاقة الطالب عبر الـ QR لمنحه 5 درجات حضور فورية.</p>
+                            
+                            <div class="flex gap-3 justify-center mb-4 w-full relative z-10">
+                                <button onclick="window.startNFCScanner()" class="bg-indigo-50 text-indigo-600 border border-indigo-200 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-100 flex-1 transition-colors"><i data-lucide="nfc" class="w-5 h-5"></i> مسح NFC</button>
+                            </div>
+
+                            ${!state.scannerActive ? `
+                                <button onclick="window.startQRScanner('doctor')" class="w-full btn-modern py-3.5 rounded-xl flex items-center justify-center gap-2 relative z-10"><i data-lucide="camera" class="w-5 h-5"></i> مسح QR للطالب</button>
+                            ` : `
+                                <div class="w-full flex flex-col items-center relative z-10">
+                                    <div id="qr-reader" class="w-full mt-2 bg-black rounded-2xl"></div>
+                                    <button onclick="window.stopQRScanner()" class="mt-4 w-full bg-red-50 text-red-600 border border-red-200 font-bold py-2 px-6 rounded-xl hover:bg-red-100 transition-colors">إغلاق الكاميرا</button>
+                                </div>
+                            `}
+                        </div>
+                        
+                        <!-- تقييم المهام (مفلترة) -->
+                        <div class="glass-card p-6 sm:p-8 rounded-[2rem] flex flex-col max-h-[65vh]">
+                            <h3 class="text-xl font-black text-slate-800 mb-4 flex items-center"><div class="bg-brand-50 border border-brand-100 p-2 rounded-xl ml-3"><i data-lucide="check-square" class="w-5 h-5 text-brand-600"></i></div> المهام والتسليمات المرفوعة</h3>
+                            
+                            <!-- الفلاتر الذكية -->
+                            <div class="flex flex-col sm:flex-row gap-3 mb-5 pb-5 border-b border-slate-100">
+                                <select onchange="state.docFilters.spec = this.value; renderApp()" class="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-brand-400 shadow-sm">
+                                    <option value="all">كافة التخصصات</option>
+                                    ${currentSpecsList.map(s => `<option value="${s.id}" ${state.docFilters.spec === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                                </select>
+                                <select onchange="state.docFilters.level = this.value; renderApp()" class="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-brand-400 shadow-sm">
+                                    <option value="all">كافة المستويات</option>
+                                    ${levels.map(l => `<option value="${l.id}" ${state.docFilters.level === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+                                </select>
+                            </div>
+
+                            <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                                ${filteredSubs.length === 0 ? '<div class="py-10 flex flex-col items-center"><div class="bg-slate-50 p-4 rounded-full mb-3"><i data-lucide="inbox" class="w-8 h-8 text-slate-300"></i></div><p class="text-slate-500 font-bold text-sm">لا توجد تسليمات متطابقة مع البحث.</p></div>' : 
+                                filteredSubs.map(s => `
+                                    <div class="bg-white p-4 rounded-2xl border border-slate-100 hover:border-brand-200 transition-colors shadow-sm">
+                                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
+                                            <div><h4 class="font-bold text-slate-800 text-base">${s.studentName}</h4><p class="text-xs text-slate-500 font-medium mt-1"><i data-lucide="book" class="w-3 h-3 inline-block"></i> ${s.subjectTitle || 'مادة غير معروفة'}</p></div>
+                                            <span class="tag-modern px-2.5 py-1 rounded-lg text-[10px] ${s.grade ? (s.visibleToStudent ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200') : 'bg-white text-slate-500 border-slate-200'}">${s.grade ? (s.visibleToStudent ? 'مرئية للطالب' : 'مخفية (للمراجعة)') : 'بانتظار التقييم'}</span>
+                                        </div>
+                                        <div class="flex gap-2 w-full">
+                                            <button onclick="state.modals.submissionGrade = ${JSON.stringify(s).replace(/"/g, '&quot;')}; renderApp();" class="flex-1 bg-brand-50 text-brand-700 font-bold py-2 rounded-xl border border-brand-200 hover:bg-brand-100 text-sm transition-colors">إعطاء درجة</button>
+                                            <a href="${s.link}" target="_blank" class="bg-white text-blue-600 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"><i data-lucide="external-link" class="w-4 h-4"></i></a>
+                                        </div>
+                                    </div>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            else if(state.currentView === 'home') {
+                const visibleSpecs = hasFullAccess ? currentSpecsList : currentSpecsList.filter(s => s.id === state.user.specialization);
+                html = `<div class="animate-slide-up space-y-8">`;
+                
+                if(state.news.length > 0) {
+                    html += `<div class="glass-card p-6 sm:p-8 rounded-[2rem]"><h3 class="text-brand-600 font-black text-2xl mb-6 flex items-center"><i data-lucide="megaphone" class="w-6 h-6 ml-2 text-brand-500 animate-pulse"></i> لوحة الإعلانات</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            ${state.news.slice(0,4).map((n) => `<div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden"><div class="absolute right-0 top-0 bottom-0 w-1 bg-brand-400"></div><div class="flex justify-between items-start mb-3"><h4 class="font-extrabold text-slate-800 text-lg pr-2">${n.title}</h4>${hasFullAccess ? `<button onclick="window.requestDelete('${n.id}','news')" class="text-slate-400 hover:text-red-500 transition-colors"><i data-lucide="trash" class="w-4 h-4"></i></button>` : ''}</div><p class="text-slate-600 font-medium leading-relaxed pr-2 text-sm">${n.content}</p></div>`).join('')}
+                        </div></div>`;
+                }
+
+                html += `<div class="text-center pt-2"><h1 class="text-3xl font-black text-slate-900 mb-2">الأقسام الأكاديمية</h1><p class="text-slate-500 font-medium">تصفح المقررات، المراجع، وغرف النقاش.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${visibleSpecs.map((spec, idx) => `
+                        <div onclick="window.navigateTo('levels', '${spec.id}')" class="glass-card p-8 rounded-[2rem] cursor-pointer hover:border-brand-300 transition-all transform hover:-translate-y-1 flex flex-col items-center text-center group animate-slide-up relative" style="animation-delay: ${idx * 0.1}s">
+                            ${(spec.docId && hasFullAccess) ? `<button onclick="event.stopPropagation(); window.requestDelete('${spec.docId}', 'spec')" class="absolute top-5 left-5 text-slate-300 hover:text-red-500 bg-slate-50 p-2 rounded-full transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                            <div class="${spec.bgGlow} p-5 rounded-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm"><i data-lucide="${spec.icon}" class="w-8 h-8 ${spec.iconColor}"></i></div><h3 class="font-extrabold text-xl text-slate-800 mb-4">${spec.name}</h3><div class="flex items-center gap-1 text-slate-500 text-sm font-bold bg-slate-50 px-4 py-2 rounded-full border border-slate-100 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors"><span>تصفح القسم</span><i data-lucide="arrow-left" class="w-3.5 h-3.5"></i></div>
+                        </div>`).join('')}
+                </div></div>`;
+            }
+            
+            else if(state.currentView === 'levels') {
+                const spec = currentSpecsList.find(s=>s.id === state.selectedSpec);
+                html = `<div class="animate-fade-in space-y-6"><button onclick="window.navigateTo('home')" class="text-slate-500 font-bold flex items-center bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm w-max hover:bg-slate-50 transition-colors"><i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i> عودة للأقسام</button><div class="glass-card p-6 sm:p-8 rounded-[2rem] flex items-center gap-5"><div class="${spec?.bgGlow || 'bg-slate-100'} p-4 rounded-2xl shadow-sm"><i data-lucide="${spec?.icon || 'book'}" class="w-8 h-8 ${spec?.iconColor || 'text-slate-600'}"></i></div><div><h2 class="text-2xl sm:text-3xl font-black text-slate-900">${spec?.name || 'القسم'}</h2><p class="text-slate-500 mt-1 font-medium">اختر المستوى الدراسي</p></div></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        ${levels.map((lvl, idx) => `<div onclick="window.navigateTo('tabs', '${state.selectedSpec}', '${lvl.id}')" class="glass-card p-5 rounded-2xl cursor-pointer hover:border-brand-400 font-bold text-lg flex justify-between items-center group animate-slide-up transition-all" style="animation-delay: ${idx * 0.05}s"><div class="flex items-center gap-4"><div class="bg-white border border-slate-100 w-12 h-12 flex items-center justify-center rounded-xl group-hover:bg-brand-50 text-slate-400 group-hover:text-brand-500 font-black text-xl transition-colors shadow-sm">${lvl.num}</div><span class="text-slate-800 group-hover:text-brand-600">${lvl.name}</span></div><div class="bg-slate-50 p-2 rounded-lg border border-slate-100 group-hover:bg-brand-50 transition-colors"><i data-lucide="chevron-left" class="w-5 h-5 text-slate-400 group-hover:text-brand-600"></i></div></div>`).join('')}
+                    </div></div>`;
+            }
+            
+            else if(state.currentView === 'tabs') {
+                const levelName = levels.find(l=>l.id === state.selectedLevel).name;
+                const specName = currentSpecsList.find(s=>s.id === state.selectedSpec)?.name || 'القسم';
+
+                html = `
+                <div class="animate-fade-in flex-grow flex flex-col h-full space-y-6">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
+                        <div>
+                            <button onclick="window.navigateTo('levels', '${state.selectedSpec}')" class="mb-4 text-slate-500 font-bold flex items-center w-max bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors"><i data-lucide="arrow-right" class="w-4 h-4 ml-1.5"></i> رجوع للمستويات</button>
+                            <h2 class="text-3xl font-black text-slate-900">${levelName}</h2>
+                            <p class="tag-modern mt-2 inline-block px-4 py-1.5 rounded-full text-sm shadow-sm">${specName}</p>
+                        </div>
+                        <div class="glass-card p-1.5 rounded-2xl flex flex-wrap lg:inline-flex w-full lg:w-auto gap-1">
+                            <button onclick="window.switchTab('references')" class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-4 py-2.5 rounded-xl text-sm tab-btn ${state.activeTab === 'references' ? 'tab-active' : 'tab-inactive'}"><i data-lucide="book-marked" class="w-4 h-4"></i> المراجع</button>
+                            <button onclick="window.switchTab('subjects')" class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-4 py-2.5 rounded-xl text-sm tab-btn ${state.activeTab === 'subjects' ? 'tab-active' : 'tab-inactive'}"><i data-lucide="library" class="w-4 h-4"></i> المواد</button>
+                            <button onclick="window.switchTab('exams')" class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-4 py-2.5 rounded-xl text-sm tab-btn ${state.activeTab === 'exams' ? 'tab-active' : 'tab-inactive'}"><i data-lucide="file-question" class="w-4 h-4"></i> الاختبارات</button>
+                            <button onclick="window.switchTab('chat')" class="flex-1 sm:flex-none flex justify-center items-center gap-2 px-4 py-2.5 rounded-xl text-sm tab-btn ${state.activeTab === 'chat' ? 'tab-active' : 'tab-inactive'}"><i data-lucide="message-circle" class="w-4 h-4"></i> النقاش</button>
+                        </div>
+                    </div>`;
+
+                if(state.activeTab === 'references' || state.activeTab === 'exams') {
+                    const isRef = state.activeTab === 'references';
+                    const list = isRef ? state.references.filter(r => r.spec === state.selectedSpec && r.level === state.selectedLevel) : state.exams.filter(e => e.spec === state.selectedSpec && e.level === state.selectedLevel);
+                    const color = isRef ? 'brand' : 'blue'; const icon = isRef ? 'book-open' : 'clipboard-list';
+                    if(canEditContent) {
+                        html += `<form onsubmit="event.preventDefault(); window.handleAddContent(event, '${isRef?'ref':'exam'}')" class="glass-card p-6 sm:p-8 rounded-[2rem] mb-8"><h3 class="font-black text-slate-800 mb-5 flex items-center"><div class="bg-${color}-50 p-2 rounded-xl ml-3 border border-${color}-100"><i data-lucide="${isRef?'cloud-upload':'file-question'}" class="w-5 h-5 text-${color}-600"></i></div> إضافة ${isRef?'مرجع':'اختبار'} جديد</h3><div class="grid grid-cols-1 md:grid-cols-5 gap-4"><div class="col-span-2"><input type="text" id="${isRef?'ref-title':'exam-title'}" required placeholder="العنوان..." class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none shadow-sm focus:border-brand-400"></div>${isRef ? `<div class="col-span-1"><input type="text" id="ref-author" required placeholder="المؤلف..." class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none shadow-sm focus:border-brand-400"></div>` : ''}<div class="col-span-${isRef?'1':'2'}"><input type="url" id="${isRef?'ref-link':'exam-link'}" required placeholder="الرابط..." class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none shadow-sm focus:border-brand-400" dir="ltr"></div><button type="submit" class="col-span-1 btn-modern font-bold rounded-xl text-lg">إضافة</button></div></form>`;
+                    }
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">`;
+                    list.forEach((item) => { html += `<div class="glass-card p-6 rounded-3xl flex flex-col group animate-slide-up hover:border-${color}-300 transition-colors"><div class="flex items-start mb-6"><div class="bg-white border border-slate-100 p-3.5 rounded-2xl ml-4 text-slate-400 group-hover:text-${color}-500 group-hover:bg-${color}-50 transition-colors shadow-sm"><i data-lucide="${icon}" class="w-6 h-6"></i></div><div><h3 class="font-bold text-lg text-slate-900">${item.title}</h3>${item.author ? `<p class="text-sm text-slate-500 mt-1 font-medium">${item.author}</p>`:''}</div></div><div class="mt-auto flex justify-between pt-4 border-t border-slate-100"><a href="${item.link}" target="_blank" class="text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl font-bold text-sm flex items-center hover:bg-slate-50 transition-colors shadow-sm"><i data-lucide="external-link" class="w-4 h-4 ml-1.5 text-${color}-500"></i> تصفح الرابط</a>${canEditContent ? `<button onclick="window.requestDelete('${item.id}', '${isRef?'ref':'exam'}')" class="text-red-400 hover:bg-red-50 p-2 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></div>`; });
+                    html += list.length === 0 ? `<div class="col-span-full flex flex-col items-center py-12 glass-card rounded-3xl border-dashed border-2 border-slate-200"><div class="bg-slate-50 p-4 rounded-full mb-3"><i data-lucide="inbox" class="w-8 h-8 text-slate-300"></i></div><p class="text-slate-500 font-bold text-sm">لا يوجد محتوى حالياً.</p></div>` : '</div>';
+                
+                } else if (state.activeTab === 'subjects') {
+                    const subs = state.subjects.filter(s => s.spec === state.selectedSpec && s.level === state.selectedLevel);
+                    if(canEditContent) html += `<form onsubmit="event.preventDefault(); window.handleAddContent(event, 'sub')" class="glass-card p-6 sm:p-8 rounded-[2rem] mb-8 flex flex-col sm:flex-row gap-4 items-end animate-slide-up"><div class="flex-grow w-full"><label class="block text-sm font-bold text-slate-600 mb-2 ml-1">اسم المادة</label><input type="text" id="sub-title" required placeholder="مثال: فيزياء 1" class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none shadow-sm focus:border-brand-400"></div><button type="submit" class="btn-modern w-full sm:w-auto h-[58px] px-8 rounded-xl font-bold flex items-center justify-center gap-2"><i data-lucide="plus-circle" class="w-5 h-5"></i> إضافة المادة</button></form>`;
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-5">`;
+                    subs.forEach((s, idx) => {
+                        const lecCount = state.lectures.filter(l => l.subjectId === s.id).length;
+                        html += `<div class="glass-card p-5 sm:p-6 rounded-3xl cursor-pointer group flex justify-between items-center animate-slide-up hover:border-brand-300 transition-all"><div onclick="window.navigateTo('lectures', null, null, '${s.id}')" class="flex-grow flex items-center h-full"><div class="bg-white border border-slate-100 p-3.5 rounded-2xl ml-4 group-hover:bg-brand-50 group-hover:border-brand-100 transition-colors shadow-sm"><i data-lucide="folder-open" class="w-6 h-6 text-slate-400 group-hover:text-brand-500"></i></div><div><h3 class="font-extrabold text-lg text-slate-800 group-hover:text-brand-600 transition-colors">${s.title}</h3><p class="text-xs text-slate-500 font-medium mt-1">${lecCount} محتوى / تمارين</p></div></div>${canEditContent ? `<button onclick="window.requestDelete('${s.id}', 'sub')" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl ml-2 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : `<div class="bg-white p-2.5 rounded-xl border border-slate-100 ml-2 group-hover:bg-brand-50 transition-colors shadow-sm"><i data-lucide="chevron-left" class="w-4 h-4 text-slate-400 group-hover:text-brand-500"></i></div>`}</div>`;
+                    });
+                    html += subs.length === 0 ? '<div class="col-span-full flex flex-col items-center justify-center py-12 glass-card rounded-[2rem] border-dashed border-2 border-slate-200"><div class="bg-slate-50 p-4 rounded-full mb-3"><i data-lucide="folder-x" class="w-8 h-8 text-slate-300"></i></div><p class="text-slate-500 font-bold text-sm">لم يتم إضافة مواد دراسية بعد.</p></div>' : '</div>';
+                
+                } else if (state.activeTab === 'chat') {
+                    const specChats = state.chats.filter(c => c.specId === state.selectedSpec);
+                    html += `<div class="glass-card rounded-[2rem] flex flex-col h-[600px] overflow-hidden animate-slide-up"><div class="bg-white/50 border-b border-slate-200 p-4 flex justify-between items-center"><div class="flex items-center"><div class="bg-white text-emerald-600 p-2 rounded-xl ml-3 border border-slate-200 shadow-sm"><i data-lucide="messages-square" class="w-5 h-5"></i></div><div><h3 class="font-black text-slate-800 text-base">غرفة نقاش: ${specName}</h3><p class="text-xs text-emerald-600 font-bold flex items-center mt-0.5"><div class="w-2 h-2 bg-emerald-500 rounded-full ml-1.5 animate-pulse"></div> متصل الآن</p></div></div></div><div id="department-chat-box" class="flex-grow p-5 sm:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-slate-50/50 inner-shadow">${specChats.length === 0 ? `<div class="flex-grow flex flex-col items-center justify-center opacity-70"><div class="bg-white p-4 rounded-full shadow-sm mb-3 border border-slate-100"><i data-lucide="message-circle-dashed" class="w-8 h-8 text-slate-300"></i></div><h4 class="text-base font-bold text-slate-500">ابدأ النقاش الأكاديمي.</h4></div>` : specChats.map((chat) => { const isMe = chat.senderId === state.user.id; const isPriv = ['admin', 'doctor', 'super_admin'].includes(chat.senderRole); return `<div class="flex flex-col ${isMe?'items-end':'items-start'}"><div class="flex items-baseline gap-2 mb-1">${!isMe?`<span class="text-[10px] font-bold text-slate-400 ml-1">${chat.senderName}</span>`:''}${isPriv&&!isMe?`<span class="tag-modern px-1.5 py-0.5 rounded text-[9px]">أستاذ/مشرف</span>`:''}</div><div class="flex items-end gap-2 max-w-[90%] sm:max-w-[85%]"><div class="relative p-3.5 px-5 rounded-2xl shadow-sm text-sm font-medium border ${isMe?'bg-brand-500 border-brand-600 text-white rounded-bl-none':(isPriv?'bg-amber-50 border-amber-200 text-slate-800 rounded-br-none':'bg-white border-slate-200 text-slate-700 rounded-br-none')}">${chat.text}<span class="block text-[9px] mt-1.5 opacity-70 font-sans ${isMe?'text-left text-brand-100':'text-right text-slate-400'}">${window.formatTime(chat.timestamp)}</span></div>${(canEditContent||isMe)?`<button onclick="window.requestDelete('${chat.id}', 'chat')" class="text-red-300 hover:text-red-500 p-1 bg-white rounded-full shadow-sm border border-slate-100 transition-colors"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>`:''}</div></div>`; }).join('')}</div><div class="p-3 sm:p-4 bg-white border-t border-slate-200"><form onsubmit="window.handleSendChatMessage(event)" class="flex gap-2 sm:gap-3"><input type="text" id="chat-msg-input" placeholder="اكتب رسالتك..." required class="w-full flex-grow p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 outline-none focus:border-brand-400 text-sm"><button type="submit" class="bg-slate-900 text-white px-5 sm:px-6 rounded-xl shadow-md hover:bg-slate-800 transition-colors"><i data-lucide="send" class="w-4 h-4 sm:w-5 sm:h-5 rotate-180"></i></button></form></div></div>`;
+                }
+                html += `</div>`;
+            }
+
+            else if (state.currentView === 'lectures') {
+                const sub = state.subjects.find(s => s.id === state.selectedSubject);
+                const lecs = state.lectures.filter(l => l.subjectId === state.selectedSubject).sort((a,b)=>a.createdAt - b.createdAt);
+                const mySubs = state.submissions.filter(s => s.studentId === state.user.id && s.subjectId === state.selectedSubject);
+
+                html = `
+                <div class="animate-fade-in flex-grow flex flex-col space-y-6">
+                    <button onclick="window.navigateTo('tabs')" class="text-slate-500 font-bold flex items-center bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm w-max hover:bg-slate-50 transition-colors"><i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i> رجوع للمواد</button>
+                    
+                    <div class="glass-card p-6 sm:p-8 rounded-[2rem] flex flex-col sm:flex-row items-start sm:items-center gap-5 relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-2 bg-brand-400"></div>
+                        <div class="bg-brand-50 p-4 rounded-2xl border border-brand-100 shadow-sm"><i data-lucide="monitor-play" class="w-8 h-8 text-brand-600"></i></div>
+                        <div><p class="text-slate-500 text-xs font-bold mb-1">المحتوى التعليمي والمهام</p><h2 class="text-2xl sm:text-3xl font-black text-slate-900">${sub?.title}</h2></div>
+                    </div>
+
+                    ${canEditContent ? `
+                    <form onsubmit="event.preventDefault(); window.handleAddContent(event, 'lec')" class="glass-card p-6 sm:p-8 rounded-[2rem] flex flex-col gap-4">
+                        <h3 class="font-black text-lg mb-2 text-slate-800 border-b border-slate-100 pb-3"><i data-lucide="plus-circle" class="w-5 h-5 inline-block text-brand-500 ml-1"></i> إضافة محتوى / تمرين للمادة</h3>
+                        <div class="flex flex-col md:flex-row gap-4 w-full">
+                            <div class="flex-grow w-full"><label class="block text-sm font-bold text-slate-600 mb-2 ml-1">عنوان الدرس/التمرين</label><input type="text" id="lec-title" required placeholder="اكتب العنوان هنا..." class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400 shadow-sm"></div>
+                            <div class="w-full md:w-48"><label class="block text-sm font-bold text-slate-600 mb-2 ml-1">نوع المحتوى</label><select id="lec-type" class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400 shadow-sm"><option value="video">🎥 فيديو / يوتيوب</option><option value="pdf">📄 PDF / ملزمة</option><option value="ppt">📊 PPT</option></select></div>
+                        </div>
+                        <div class="flex flex-col md:flex-row gap-4 w-full items-end">
+                            <div class="flex-grow w-full"><label class="block text-sm font-bold text-slate-600 mb-2 ml-1">الرابط المباشر للمحتوى</label><input type="url" id="lec-link" required placeholder="الرابط الخارجي (درايف/يوتيوب)..." class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400 shadow-sm" dir="ltr"></div>
+                            <button type="submit" class="btn-modern w-full md:w-auto px-8 h-[58px] rounded-xl font-bold whitespace-nowrap"><i data-lucide="upload-cloud" class="w-5 h-5 ml-2 inline-block"></i> نشر المحتوى</button>
+                        </div>
+                    </form>` : ''}
+
+                    <div class="space-y-4 mb-8">
+                        ${lecs.map((lec, index) => {
+                            let icon = 'play-circle', color = 'blue';
+                            if(lec.type === 'pdf') { icon = 'file-text'; color = 'red'; }
+                            if(lec.type === 'ppt') { icon = 'presentation'; color = 'orange'; }
+                            const isAttended = state.user.role === 'student' && state.user.attendedLectures?.includes(lec.id);
+                            return `
+                            <div class="glass-card p-5 sm:p-6 rounded-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 transition-all group ${isAttended ? 'border-2 border-emerald-300 bg-emerald-50/50' : 'hover:border-brand-200'}">
+                                <div class="flex items-center gap-4 w-full lg:w-auto">
+                                    <div class="bg-white p-4 rounded-2xl text-${color}-500 border border-slate-100 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform"><i data-lucide="${icon}" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1.5"><span class="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">#${String(index + 1).padStart(2, '0')}</span>${isAttended ? '<span class="text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded flex items-center shadow-sm"><i data-lucide="check-check" class="w-3 h-3 ml-1"></i> مكتمل</span>' : ''}</div>
+                                        <span class="font-bold text-base sm:text-lg text-slate-800 break-words line-clamp-2">${lec.title}</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 w-full lg:w-auto shrink-0 flex-wrap sm:flex-nowrap">
+                                    ${state.user.role === 'student' ? `<button onclick="window.toggleAttendance('${lec.id}')" class="flex-1 sm:flex-none justify-center px-4 py-2.5 rounded-xl font-bold text-sm border flex items-center transition-all ${isAttended ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'} shadow-sm"><i data-lucide="${isAttended ? 'check-circle-2' : 'circle'}" class="w-4 h-4 ml-1.5"></i> ${isAttended ? 'مكتمل' : 'تعليم كمكتمل'}</button>` : ''}
+                                    <a href="${lec.link}" target="_blank" class="flex-1 sm:flex-none justify-center text-white bg-slate-800 px-5 py-2.5 rounded-xl font-bold text-sm flex items-center hover:bg-slate-900 shadow-sm transition-colors"><i data-lucide="external-link" class="w-4 h-4 ml-1.5 text-slate-300"></i> فتح</a>
+                                    ${canEditContent ? `<button onclick="window.requestDelete('${lec.id}', 'lec')" class="bg-white text-red-400 hover:bg-red-50 hover:text-red-600 border border-slate-200 p-2.5 rounded-xl transition-colors shadow-sm"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                                </div>
+                            </div>`}).join('')}
+                        ${lecs.length === 0 ? '<div class="flex flex-col items-center justify-center py-12 glass-card rounded-[2rem] border-dashed border-2 border-slate-200"><div class="bg-slate-50 p-4 rounded-full mb-3"><i data-lucide="inbox" class="w-8 h-8 text-slate-300"></i></div><p class="text-slate-500 font-bold text-sm">لم يتم رفع محتوى للمادة بعد.</p></div>' : ''}
+                    </div>
+
+                    ${state.user.role === 'student' ? `
+                    <div class="glass-card p-6 sm:p-8 rounded-[2rem] mt-8">
+                        <h3 class="text-lg font-black text-slate-800 mb-6 flex items-center border-b border-slate-100 pb-3"><div class="bg-brand-50 p-2 rounded-lg ml-3 border border-brand-100"><i data-lucide="upload-cloud" class="w-4 h-4 text-brand-600"></i></div> تسليم المهام والبحوث للمادة</h3>
+                        <form onsubmit="window.submitAssignment(event)" class="flex flex-col md:flex-row gap-4 items-end mb-8">
+                            <input type="hidden" id="assign-subject" value="${state.selectedSubject}">
+                            <div class="flex-grow w-full"><label class="block text-sm font-bold text-slate-600 mb-2 ml-1">رابط التسليم (Google Drive / المرفق)</label><input type="url" id="assign-link" required class="w-full p-4 bg-white border border-slate-200 rounded-xl font-bold outline-none focus:border-brand-400 shadow-sm" dir="ltr" placeholder="https://..."></div>
+                            <button type="submit" class="btn-modern w-full md:w-auto px-8 py-4 rounded-xl font-bold h-[58px] flex justify-center items-center"><i data-lucide="send" class="w-4 h-4 inline-block ml-2"></i> إرسال التكليف</button>
+                        </form>
+                        <h4 class="font-bold text-slate-600 mb-4 border-b border-slate-100 pb-2 flex items-center text-sm"><i data-lucide="history" class="w-3 h-3 ml-1.5 text-slate-400"></i> سجل تسليماتك السابقة</h4>
+                        <div class="space-y-3">
+                            ${mySubs.length === 0 ? '<p class="text-slate-400 text-xs font-bold bg-white p-4 rounded-xl text-center border border-slate-100">لم تقم برفع أي مهام لهذه المادة حتى الآن.</p>' : mySubs.map(s => `
+                                <div class="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm">
+                                    <div><p class="text-[10px] text-slate-400 font-bold mb-1.5">${window.formatTime(s.timestamp)}</p><a href="${s.link}" target="_blank" class="text-blue-600 font-bold text-xs flex items-center hover:underline bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 w-max transition-colors"><i data-lucide="external-link" class="w-3 h-3 ml-1"></i> عرض المرفق المُرسل</a></div>
+                                    <div class="w-full sm:w-auto text-left">${s.grade ? (s.visibleToStudent ? `<span class="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-xl font-black text-xs shadow-sm flex items-center justify-center sm:inline-flex"><i data-lucide="check-circle" class="w-3 h-3 ml-1"></i> النتيجة: ${s.grade}</span>` : `<span class="text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-amber-200">النتيجة مخفية (تم التقييم)</span>`) : `<span class="text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-slate-200 flex items-center w-max"><i data-lucide="clock" class="w-3 h-3 ml-1"></i> قيد مراجعة الأستاذ</span>`}</div>
+                                </div>`).join('')}
+                        </div>
+                    </div>` : ''}
+                </div>`;
+            }
+
+            container.innerHTML = html;
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        document.addEventListener('DOMContentLoaded', renderApp);
+    </script>
+</body>
+</html>
